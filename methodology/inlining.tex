@@ -1,0 +1,123 @@
+%############################################################################
+\section{Inlining and Unrolling}
+\label{sec:m-inlining}
+%############################################################################
+
+
+Inlining and unrolling are routinely used by compilers to optimize the generated code for speed; they are also occasionally used for program checking, as we discuss in Section~\ref{sec:m-inlining:related-work}.
+The novelty of our approach is the automatic combination, in two-step verification, of inlining and unrolling with modular ``specification-based'' verification.
+Inlining and unrolling may succeed in situations where little programmer-written specification is available; in such cases, users get a summary feedback that combines the output of each individual technique and is aware of the potential unsoundness of inlining and unrolling.
+The combined feedback gives specific suggestions as to what should be improved.
+This section presents the definitions of inlining and unrolling; Section~\ref{sec:m-twostep} discusses how they are combined in two-step verification.
+
+
+%============================================================================
+\subsection{Inlining} \label{sec:inlining}
+%============================================================================
+
+The standard approach to reasoning about routine calls is \emph{modular} based on specifications: the effects of a call to some routine \e{r} within the callee are postulated to coincide with whatever \e{r}'s specification is.
+More precisely, the callee should establish that \e{r}'s precondition holds in the calling context; and can consequently assume that \e{r}'s postcondition holds and that the call does not modify anything outside of \e{r}'s declared frame.
+
+The modular approach is necessary to scale verification to large pieces of code.
+At the same time, it places a considerable burden on programmers, since every shortcoming in the specifications they provide may seriously hinder what can be proved about their programs.
+This is a practical issue especially for helper functions that are not part of the public API: programmers may not feel compelled to provide accurate specifications---postconditions, in particular---for them because they need not be documented to clients; but they would still like to benefit from automated program checking.
+This is the case of routine \e{swap} in Figure~\ref{ex:twowaysort}, which is not specified but whose semantics is obvious to every competent programmer.
+
+Inlining can help in these situations by replacing abstract reasoning based on specifications with concrete reasoning based on implementations whenever the former are insufficient or unsatisfactory.
+In particular, inlining is likely to be useful whenever the inlined routine has no postcondition, and hence its effects within the callee are undefined under modular reasoning. 
+Of course, inlining has scalability limits; that is why we apply it in limited contexts and combine it with standard modular verification as we discuss in Section~\ref{sec:m-twostep}.
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Definition of inlining}
+%----------------------------------------------------------------------------
+
+Consider a routine \e{r} of class \e{C} with arguments \e{a}, which we represent as:
+\begin{erunning}
+r (t: C ; a) require $P_r$ modify $F_r$ do $B_r$ ensure $Q_r$ end
+\end{erunning}
+For $n \geq 0$, the $n$-inlining $\inline(A, n)$ of calls to $r$ in a piece of code $A$ is defined as $A$ with every call \e{u.r(b)} on target \e{u} (possibly \e{Current}) with actual arguments \e{b} modified as follows:
+\[
+\inline(\text{\e{u.r(b)}}, n) \!= \!\!
+\begin{cases}
+\text{\b{assert $\:P_r[u, b]$}; \b{havoc $\:F_r[u, b]$}; \b{assume $\:Q_r[u, b]$}} & \text{if }n = 0 \\
+\inline(B_r[u, b], n-1)  & \text{if } n > 0
+\end{cases}
+\]
+Inlining works recursively on calls to routines other than $r$ and recursive calls to $r$ in $B_r$; non-call instructions are instead unchanged.
+$0$-inlining coincides with the usual modular semantics of calls based on specifications.
+Otherwise, inlining replaces calls to $r$ with $B_r[u, b]$ ($r$'s body applied to the actual target $u$ and arguments $b$ of the calls), recursively for as many times as the recursion depth~$n$.
+
+
+Since inlining discards the inlined routine's precondition, it may produce under- or over-approximations of the calls under modular semantics, respectively if the declared precondition is weaker or stronger than the body's weakest precondition.
+
+
+For any $n > 0$, the $n$-inlining of \e{swap} in \e{two_way_sort}'s body (Figure~\ref{ex:twowaysort}) consists of replacing the call to \e{swap} at line~\ref{l:swap-call} with \e{swap}'s body instantiated in the correct context, that is \e{t := a[i] ; a[i] := a[j] ; a[j] := t} with \e{t} a fresh local variable declared inside \e{two_way_sort}.
+
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Inlining and dynamic dispatching}
+%----------------------------------------------------------------------------
+
+
+In programming languages with dynamic dispatching, the binding of routine bodies to routine calls occurs at runtime, based on the dynamic type of the call targets.
+This is not a problem for modular reasoning because it can rely on behavioral subtyping and the rule that routine redefinitions in descendants (overriding) may only weaken preconditions and strengthen postconditions.
+Inlining, instead, has to deal with dynamic dispatching explicitly: in general, verification using inlining of a routine \e{r} of class \e{C} is repeated for every overriding of \e{r} in \e{C}'s descendants.
+This also requires to re-verify the system whenever new descendants of \e{C} are added, unless overriding \e{r} is eventually forbidden (\e{frozen} in Eiffel, \lstinline[language=Java]|final| or \lstinline[language=Java]|private| in Java, or \lstinline[{language=[Sharp]C}]|sealed| in C\#).
+These limitations are, however, not a problem in practice when we apply inlining not indiscriminately but only in limited contexts for small helper routines, and we combine its results with classic modular reasoning as we do in two-step verification.
+
+
+
+%============================================================================
+\subsection{Unrolling} \label{sec:unrolling}
+%============================================================================
+
+The standard approach to modular reasoning also applies to loops based on their loop invariants: the effects of executing a loop on the state of the program after it are postulated to coincide with the loop invariant.
+The inductiveness of the invariant is established separately for a generic iteration of the loop, and so is the requirement that the invariant hold upon loop entry.
+
+This reliance on expressive loop invariants is at odds with the aversion programmer typically have at writing them.
+This is not only a matter of habits, but also derives from the fact that loop invariants are often complex specification elements compared to pre- and postconditions~\cite{FURIA10}; and, unlike pre- and postconditions which constitute useful documentation for clients of the routine, loop invariants are considered merely a means to the end of proving a program correct.
+The loop of \e{two_way_sort} in Figure~\ref{ex:twowaysort}, for example, has a simple loop invariant that only bounds the values of the indexes \e{i} and \e{j}; this prevents proving any complex postcondition.
+
+Unrolling can help in these situations by evaluating the effects of a loop in terms of its concrete body rather than its invariant.
+This may help prove the postcondition when the invariant is too weak, showing that a certain number of repetitions of the body are sufficient to establish the postcondition.
+Furthermore, in the cases where we have a way to establish a bound on the number of loop iterations, unrolling precisely renders the implementation semantics.
+We will generalize these observations when discussing how unrolling is applied automatically in the context of two-step verification (Section~\ref{sec:m-twostep}).
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Definition of unrolling}
+%----------------------------------------------------------------------------
+
+
+Consider a generic annotated loop $L$:
+\begin{erunning}
+until exit invariant I loop B variant V end
+\end{erunning}
+which repeats the body \e{B} until the exit condition \e{exit} holds, and is annotated with invariant \e{I} and variant \e{V}.
+For $n \geq 0$, the $n$-unrolling $\unroll(L, n)$ of $L$ is defined as:
+\[
+\unroll(L, n) \ =\                  ( \text{\e{if not exit then B end}} )^n
+\]
+where the $n$th exponent denotes $n$ repetitions.
+Since unrolling ignores the loop invariant, it may produce under- or over-approximations of the loop's modular semantics, respectively if the declared loop invariant is weaker or stronger than the body's weakest precondition.
+
+
+
+
+
+%============================================================================
+\subsection{Related Work} \label{sec:m-inlining:related-work}
+%============================================================================
+
+
+Inlining and unrolling are standard techniques in compiler construction.
+The Boogie verifier~\cite{LEINO08} also supports inlining of procedures: through annotations, one can require to inline a procedure to a given depth using different sound or unsound definitions. 
+Boogie also supports (unsound) loop unrolling on request.
+AutoProof's current implementation of inlining and unrolling works at source code level, rather than using Boogie's similar features, to have greater flexibility in how inlining and unrolling are defined and used.
+Methods specified using the Java Modeling Language (JML) with the ``helper'' modifier~\cite{COK05} are meant to be used privately; ESC/Java inlines calls to such methods~\cite{FLANAGAN02}. 
+ESC/Java also unrolls loops a fixed amount of times; users can choose between performing sound or unsound variants of the unrolling.
+Unrolling and inlining can also be used to check the type correctness of JavaScript programs~\cite{NORDIO13}.
+In two-step verification, we use inlining and unrolling completely automatically: users need not be aware of them to benefit from an improved feedback that narrows down the sources of failed verification attempts.
+

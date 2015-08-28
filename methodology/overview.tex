@@ -1,0 +1,95 @@
+%############################################################################
+\section{Overview and Examples}
+\label{sec:ap-overview}
+%############################################################################
+
+
+
+Binary search is a widely-known algorithm and is considered a standard benchmark for software verification~\cite{VSI08}.
+Most programmers have im\-ple\-men\-ted it at least once in their life.
+According to Knuth~\cite[Vol.~3, Sec.~6.2.1]{KNUTH11}, their implementations were often ``wrong the first few times they tried''.
+
+\begin{efigure}[ht]{An implementation of binary search.}{ex:binarysearch}
+binary_search (a: ARRAY [INTEGER]; x: INTEGER): INTEGER
+	require a /= Void
+	local middle: INTEGER
+	do
+		if a.count = 0 then
+			Result := -1
+		else
+			middle := (1 + a.count) / 2 #\label{l:midpoint}#
+			if a[middle] = x then
+				Result := middle
+			elseif a[middle] > x then
+				Result := binary_search (a[1:middle - 1], x)
+			else
+				assert a[middle] < x
+				Result := binary_search (a[middle + 1:a.count]), x)
+				if Result /= -1 then	Result := Result + middle end
+			end
+		end
+	ensure Result = -1 or (1 <= Result and Result <= a.count)
+	end
+\end{efigure}
+
+To demonstrate, consider the binary search implementation in Figure~\ref{ex:binarysearch}, which takes an integer array \e{a} and an integer value \e{x} and returns an integer index (the value assigned to \e{Result}) pointing to an occurrence of \e{x} in \e{a}.
+Since we assume arrays numbered from one, if \e{x} is not found in \e{a} the routine by convention returns $-1$.
+The implementation in Figure~\ref{ex:binarysearch} is indicative of what programmers typically write~\cite{POLIKARPOVA09,ESTLER14} when using a language supporting specifications in the form of contracts (pre- and postconditions, and intermediate assertions such as loop invariants and \e{assert} instructions): the implementation is ``almost'' correct (if you do not immediately see the error, read on), and the specification is obviously incomplete.
+
+Part of the missing specification is implicit in the semantics of the programming language, which is probably why the programmer did not bother writing it down explicitly.
+In particular, arithmetic operations should not overflow for the program to have a well-defined semantics.
+The midpoint calculation on line~\ref{l:midpoint} overflows when the array size \e{a.count} has value equal to the largest representable machine integer, even if the value of \e{middle} is within the bounds; this is indeed a common error in real implementations of binary search~\cite{BLOCH06}.
+
+If we try to verify the program in Figure~\ref{ex:binarysearch} using static verifiers such as Dafny~\cite{LEINO10}, we do not find any error because integer variables are modeled using mathematical integers which do not overflow.
+In Section~\ref{sec:m-implicit} we discuss our approach which automatically instantiates implicit specification elements that represent tacit assumptions about the programming language semantics.
+Such \emph{implicit contracts} help early error detection of subtle errors not explicitly specified, such as the potential overflow just discussed.
+In addition, they are made available within a more general static verification mechanism, where they can complement programmer-written contracts to improve the efficiency of the overall verification process without sacrificing precision.
+
+
+\begin{efigure}[ht]{An implementation of two-way sort of Boolean arrays.}{ex:twowaysort}
+two_way_sort (a: ARRAY [BOOLEAN])
+	require a.count > 0
+	local i, j: INTEGER
+	do
+		i := 1 ; j := a.count #\label{l:init}#
+		until	i >= j
+		invariant 1 <= i and i <= j + 1 and j <= a.count #\label{l:loop-inv}#
+		loop
+			if not a[i] then
+				i := i + 1
+			elseif a[j] then
+				j := j - 1
+			else
+				swap (a, i, j) #\label{l:swap-call}#
+				i := i + 1
+				j := j - 1
+			end
+		variant j - i + 1
+		end
+	end
+
+swap (b: ARRAY [BOOLEAN]; x, y: INTEGER)
+	local t: BOOLEAN
+	do
+		t := b[x] ; b[x] := b[y] ; b[y] := t
+	end
+\end{efigure}
+
+
+Not only do incomplete specifications limit the kinds of error that can be detected automatically during verification; they may also prevent verifying perfectly \emph{correct} programs as we now illustrate with the example of Figure~\ref{ex:twowaysort}, taken from the VSTTE 2012 verification competition~\cite{FILLIATRE12}.
+Routine \e{two_way_sort} sorts an array \e{a} of Boolean values in linear time with a technique similar to the partitioning algorithm used in Quick Sort.
+Two pointers \e{i} and \e{j} scan the array from its opposite ends; whenever they point to an inversion (that is, a \e{False} in the right-hand side and a \e{True} in the left-hand side) they remove it by swapping the elements pointed.
+When the whole array is scanned, it is sorted.
+
+The sorting algorithm calls an auxiliary routine \e{swap} that exchanges elements; \e{swap} does not have any specification---again, a situation representative of how programmers typically specify their programs.
+This is a problem because static verification uses specifications to reason \emph{modularly} about routine calls: the effects of the call to \e{swap} on line~\ref{l:swap-call} are limited to \e{swap}'s postcondition.
+Since it does not have any, the proof of \e{two_way_sort} does not go through; in particular, it cannot establish that the loop invariant at line~\ref{l:loop-inv} is inductive, which would then be the basis to establish the variant as well as any programmer-written postcondition.
+
+In our approach, when modular verification fails the verifier makes another attempt after \emph{inlining} routine bodies at their call sites.
+As we describe in Section~\ref{sec:m-inlining}, the application uses simple heuristics to avoid combinatorial explosion (for example, in the case of recursive calls).
+With inlining, we can prove that the invariant at line~\ref{l:loop-inv} is inductive without need for more specification.
+
+Using inlining, we can also check interesting properties about \emph{clients} of \e{two_way_sort}.
+For example, when calling the routine on an empty array, we compare a failed modular verification attempt (which reports a violation of \e{two_way_sort}'s precondition) to a successful verification with inlining (which only evaluates the routine's body); the discrepancy \emph{suggests} that \e{two_way_sort}'s precondition is unnecessarily strong and can be relaxed to \e{a /= Void} without affecting the rest of the verification process.
+This kind of improved feedback, concocted from two different verification attempts, is the two-step verification we present in detail in Section~\ref{sec:m-twostep}.
+

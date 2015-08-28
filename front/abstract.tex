@@ -1,0 +1,68 @@
+\chapter*{Abstract}
+%\chapterimage{images/abstract1.jpg}
+
+% Automated Usable Functional Verification of Object-Oriented Programs
+% ====================================================================
+% 1. What is the problem? 
+%		Verifying object-oriented programs is difficult for average programmers
+% 2. Why is this problem interesting/relevant?  
+% 		OO is widespread, advanced verification techniques help to improve software quality
+% 3. What is our solution approach? 
+% 		techniques for usable auto-active verification
+% 		implemented in an auto-active verifier for Eiffel
+% 		combining different verification and analysis tools
+% 4. What did we achieve? 
+% 		AutoProof, an auto-active verifier for Eiffel, that is capable of verifying challenging OO patterns and algorithmic problems, evaluated on a suite of verification challenges
+% 		A verification assistant that combines three completely different tools to support programmers focus on important areas of the code-base
+
+
+
+Object-oriented programming is pervasive in today's software world; languages based on object-orientation are used from small devices to large projects.
+Yet, automatic verification of object-oriented programs mostly uses dynamic approaches such as testing.
+In this thesis we focus on two aspects to improve this situation: (1) supporting full functional verification of object-oriented programs and (2) automated techniques to make verification of object-oriented programs more usable. To attain these goals we have developed several methodologies for automated verification, built an automated verifier, and developed a high-level technique to combine multiple tools in an IDE.
+
+Software developers nowadays can choose from many different tools for analyzing and verifying their code using different techniques both static and dynamic.
+These tools usually have independent interfaces and may force the programmer to explicitly switch tasks when working with them.
+We have developed a scoring system to make the process of using several tools in combination more streamlined.
+Several tools work in the background side by side while an aggregator collects the results and displays a combined score based on the individual results.
+This frees the developer from invoking tools and unifying the results manually to get the full picture of the state of the program.
+To demonstrate the technique we built the \VAssist combining three tools: a static verifier (\AutoProof), a dynamic verifier (\AutoTest), and a light-weight code checker (\Inspector).
+
+With \AutoProof we have built a state-of-the-art automated verifier for object-oriented sequential programs with complex functional specifications. \AutoProof incorporates two-step verification among other techniques such as semantic collaboration and agent verification. To show \AutoProof's performance on verifying object-oriented idioms as well as standard algorithmic problems, we have made an evaluation of \AutoProof on a rich collection of benchmark problems from recent verification competitions.
+The results attest \AutoProof's competitiveness among tools in its league on cutting-edge object-oriented verification problems.
+
+To improve feedback of failed verification attempts, we have developed \emph{two-step verification}, a technique that combines implicit specifications, inlining, and loop unrolling.
+Two-step verification performs two independent verification attempts for each program element: one using standard modular reasoning, and another one after inlining and unrolling; comparing the outcomes of the two steps suggests which elements should be improved.
+
+Both our tools---\AutoProof and the \VAssist---are available in \EVE, the open-source Eiffel Verification Environment. Additionally, \AutoProof is available through an on-line interface together with a tutorial, user manual, and a repository with all our solutions to benchmark problems.
+
+
+
+\chapter*{Zusammenfassung}
+%\chapterimage{images/abstract2.jpg}
+
+\selectlanguage{german}
+
+Objekt-orientierte Programmierung ist in der heutigen Softwarewelt allgegenw\"artig; Sprachen die auf objekt-orientierung aufbauen werden von kleinen Ger\"aten bis zu grossen Projekten verwendet.
+Trotzdem wird in der Verifikation von objekt-orientierten Programmen haupts\"achlich dynamische Ans\"atze wie zum Beispiel \emph{Testen} angewendet.
+In dieser Doktorarbeit fokussieren wir uns auf zwei Aspekten um diese Situation zu verbessern: (1) volle funktionale Verifikation von objekt-orientierten Programmen und (2) automatische Techniken, welche die Verifikation von objekt-orientierten Programmen benutzerfreundlicher machen.
+Um diese Ziele zu erreichen haben wir mehrere Methoden f\"ur automatisierte Verifikation entwickelt, einen automatisierten Verifizierer implementiert und eine Technik entwickelt, um mehrere Tools in einer IDE auf hoher Abstraktionsstufe zu kombinieren.
+
+Softwareentwickler k\"onnen heutzutage von einer Vielzahl von Tools f\"ur die Analyse und Verifikation ihre Codes w\"ahlen, sowohl Tools die statische als auch dynamische Techniken verwenden.
+Diese Tools k\"onnen eigene Benutzeroberfl\"achen anbieten und zwingen so den Programmierer explizit mit diesen Tools zu interagieren.
+Wir haben ein Punktesystem entwickelt, das die Benutzung mehrere Tools in Kombination vereinfachen soll.
+Mehrere Tools arbeiten im Hintergrund Seite an Seite, w\"ahrend ein Aggregator die Resultate sammelt und eine kombinierte Punktezahl basierend auf den individuellen Resultaten anzeigt.
+Dies befreit den Entwickler davon, die Tools einzeln zu verwenden, und die Resultate manuell zu kombinieren um sich ein Bild vom Zustand des Programms zu machen.
+Um diese Technik zu demonstrieren haben wir den \VAssist entwickelt, der drei Tools kombiniert: einen statischen Verifizierer (\AutoProof), einen dynamischen Verifizierer (\AutoTest), und einen leichtgewichtigen Code-Pr\"ufer (\Inspector).
+
+Mit \AutoProof haben wir einen modernen auto-aktiven Verifizierer f\"ur sequentielle objekt-orientierte Programme mit komplexen funktionalen Spezifikationen entwickelt.
+\AutoProof unterst\"utzt Zwei-Phasen Verifikation und andere Techniken wie Semantische Kollaboration und Verifikation von Agenten. Um die Leistung von \AutoProof bei der Verifikation von objekt-orientierten Idiomen und auch algorithmischen Problemen aufzuzeigen, haben wir eine Evaluation von \AutoProof auf einem vielf\"altigen Benchmark von Problemen k\"urzlicher Verifikations-Wettbewerbe gemacht.
+Die Resultate attestieren die Konkurrenzf\"ahigkeit von \AutoProof gegen\"uber anderen Tools in seiner Liga bei aktuellen objekt-orientierten Verifikationsproblemen.
+
+Um das Feedback bei fehlgeschlagenen Verifikationsversuchen zu verbessern haben wir \emph{Zwei-Phasen Verifikation} entwickelt; eine Technik, welche implizite Spezifikationen, Inlining und Loop Unrolling kombiniert.
+Zwei-Phasen Verifikation f\"uhrt zwei unabh\"angige Verifikationsversuche durch f\"ur jedes Programmelement: die erste Phase benutzt das modulare Verfahren und die zweite Phase verifiziert nach Inlining und Unrolling. Der Vergleich dieser beiden Phasen weist auf das Programmelement hin, welches zu verbessern ist.
+
+Unsere beiden Tools---\AutoProof und der \VAssist---sind in \EVE integriert, dem quelloffenen Eiffel Verification Environment. Zus\"atzlich ist \AutoProof \"uber eine online Benutzeroberfl\"ache erh\"altlich, zusammen mit einem Tutorial, einem Benutzerhandbuch und einem Archiv mit unseren L\"osungen zu Benchmark-Problemen.
+
+
+\selectlanguage{english}

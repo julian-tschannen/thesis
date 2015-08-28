@@ -1,0 +1,23 @@
+%############################################################################
+\section{Related Work}
+\label{sec:va-related}
+%############################################################################
+
+
+
+A few authoritative researchers have pointed out the potential of combining static and dynamic techniques~\cite{RAJAMANI09,ERNST10,FRASER10} to make verification more usable.
+
+Some of the aforementioned testing tools~\cite{GODEFROID05,SEN05,CADAR08} already leverage lightweight static analyses to boost the performance of automated testing. 
+Pex~\cite{TILLMANN08} is another scalable automatic testing framework, which relies more heavily on static methods: it exploits a variant of dynamic symbolic execution where an automated theorem prover (Z3) analyzes the symbolic executions to improve code coverage.  Pex uses parameterized unit tests~\cite{TILLMANN05} as specifications. 
+This makes it possible to test fairly sophisticated properties, but it also requires users to produce specifications in this customized form; contract specifications, however, seem more palatable to practitioners~\cite{CHALIN06b}.
+
+DASH~\cite{RAJAMANI09} combines static and dynamic verification with an approach extending the software model-checking paradigm~\cite{BEYER07}: DASH's algorithm to generate exhaustive tests maintains a sound abstraction of the program, which can be used to construct automatically a correctness argument.
+
+The few recent attempts at combining static and dynamic techniques tend to be specific conservative extensions of basic methods; the approach described here tries integration at a higher level to avail the complementarity of static and dynamic techniques to a larger extent.
+
+The SPARK Pro IDE~\cite{SPARKPRO} provides analysis and verification tools for the SPARK programming language~\cite{BARNES03}. The tools are integrated in the user interface and provide feedback through errors and warnings for different types of analyses and---given contract equipped program---verify the functional correctness of the program.
+
+Frama-C~\cite{CUOQ12,CORRENSON12} is a tool-set to statically analyze C code. In addition to providing a plug-in based system for different types of analyses, Frama-C can be used to verify properties expressed in the ACSL specification language~\cite{ACSL}.
+
+SIDE~\cite{LOGOZZO12b}, a Semantic IDE, leverages the CodeContracts checker~\cite{FAEHNDRICH10} to analyze programs in real time. The analysis can be used to verify absences of runtime errors, suggest fixes for errors, and infer contracts in the form of pre- and postconditions.
+

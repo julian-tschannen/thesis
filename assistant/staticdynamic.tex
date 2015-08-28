@@ -1,0 +1,64 @@
+%============================================================================
+\section{Advantages of Being Static and Dynamic}
+%============================================================================
+
+From a user's perspective, \EVE's integration of static and dynamic tools can make verification more effective and agile in a variety of scenarios.
+
+\begin{itemize}
+
+\item 
+\emph{Modularity and scalability.}
+Static verification is more modular and scales better to large systems made of several classes.
+It can also verify routines of deferred (abstract) classes which cannot be tested because they cannot be instantiated.
+This indirectly improves the performance of testing as well, because the testing effort can focus on routines or classes not proved correct.
+
+Conversely, whenever testing uncovers a faulty routine, the static tool stops trying to verify that routine.
+This policy may be broken down to individual clauses: for example, if testing finds a run of \e{remove_left} (Figure~\ref{tab:motivating-example}) violating the postcondition clause \e{count = old count - 1}, it may still be worthwhile to try to prove the other clause.
+
+\item
+\emph{Concrete counterexamples.}
+Dynamic analysis provides concrete reports of errors, which make debugging easier. For example, the following trace documents the error in the creation procedure \e{make_default} of Figure~\ref{tab:motivating-example}:
+\begin{erunning}
+create {ARRAYED_LIST} l.make_default (1)
+-- Inside $\textit{make\_default}$:
+l_v := Void ; Precursor (1) ; extend (l_v) -- $l\_v$ is $\mathbf{Void}$
+\end{erunning}
+
+\item 
+\emph{Partial implementations.}
+Classes that have a faulty creation procedure or are deferred cannot be instantiated; testing cannot proceed in this case unless the constructor is fixed or an implementation of every routine is available.
+Static techniques do not incur these limitations: as illustrated in the example of Section~\ref{sec:va:example}, they can verify individual implemented routines even if others in the same class are deferred.
+
+\item
+\emph{Black-box verification.}
+Many core libraries rely on routines implemented through calls to low-level external routines (typically, in the Eiffel case, C functions); an example was \e{is_equal} in Figure~\ref{tab:motivating-example}.
+Such routines are inaccessible to static analysis but are still testable. The integrated results of static and dynamic analysis on classes with such external routines reinforce the confidence in the correctness of the overall system.
+
+\item
+\emph{Abstract vs.~runtime behavior.}
+Combining static and dynamic analysis can help detect discrepancies between the runtime behavior of a program and its idealized model.
+Examples are overflows and out-of-memory errors, which are often not accounted for in an abstract specification assuming perfect arithmetic and infinite memory.
+Consider, for example, a routine that updates the balance of a bank account as a result of a deposit operation:
+\begin{erunning}
+deposit (amount: INTEGER)
+	require amount > 0
+	do balance := balance + amount
+	ensure balance > old balance
+	end
+\end{erunning}
+\AutoProof with default options models the type \e{INTEGER} as mathematical integers and verifies that the routine is correct (an option exist to enable overflow checks).
+\AutoTest, however, can still find a bug which occurs when \e{old balance + amount} is greater than the largest integer value representable and \e{balance} overflows.
+It is then a matter of general policy whether one should change the postcondition or the implementation.
+In any case, the comparison of the results of static and dynamic analysis clearly highlights the problem and facilitates the design of the best solution.
+
+\item
+\emph{Complex contracts.}
+Complex contracts considerably slow down automatic testing, both because their runtime evaluation incurs a significant overhead and because random generation takes a long time to build objects that satisfy complex preconditions.
+Contracts may even in some cases be non-executable because they involve predicates over infinite sets or ghost code; for example, the invariant of a class modeling a hash function requires that the hash code of every possible object (an infinite set) be a non-negative integer.
+Static techniques can help in all such scenarios: it may be easier to prove the correctness of a routine if the precondition is complex, and hence also stronger; complex postconditions boost modular verification.
+\end{itemize}
+
+
+These observations highlight the usefulness of treating proofs and tests as complementary and convergent techniques.
+There is indeed no contradiction; in particular, with the purpose of tests being entirely defined as attempting to make programs fail~\cite{MEYER08}, a useful (that is, failed) test is a proof that the program is not correct. The approach illustrated by \EVE is then to combine tools that can prove a program correct (such as \AutoProof) and tools that can prove a program incorrect (\AutoTest); as soon as a user has written a new program element, the two will start in the background, each with its own specific goal, prove or disprove; in favorable situations, one of them will reach its goal fast, providing the user with a fast response of correctness or incorrectness.
+

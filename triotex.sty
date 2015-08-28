@@ -1,0 +1,273 @@
+% ***********************
+%    triotex.sty
+%
+%    by Carlo A. Furia
+%
+% ***********************
+
+\RequirePackage{amsmath,amssymb,ifthen,dsfont}
+
+\def\filedate{2008/01/20}
+\def\docdate{2005/08/07}
+\def\fileversion{0.2}
+\def\basename{triotex}
+\typeout{Style `\basename', version \fileversion\space <\filedate>}
+
+\ProvidesPackage{triotex}[\filedate \space\fileversion]
+
+% ----------------------------------
+% TRIO temporal operators
+% ----------------------------------
+
+%% Generic TRIO operator, displayed in the form name_{subscript}(arguments)
+\DeclareRobustCommand{\TRIOop}[3] % operator_name, subscript, arguments
+{\ensuremath{%
+	 % if subscript argument (#2) is nonempty, add subscript appropriately
+	 \ifthenelse{\not \equal{#2}{} }  {\mathrm{#1}_{\mathrm{#2}}}  {\mathrm{#1}}
+	 % if operator argument is nonempty write ( #3 )
+	 \ifthenelse{\not \equal{#3}{}}  {\!\left( {#3} \right)} {}
+	 % else: just write the operator's name
+  }%
+}%
+
+%% TRIO operators of common use
+\newcommand{\Dist}[1]{\TRIOop{Dist}{}{#1}}
+\newcommand{\Past}[1]{\TRIOop{Past}{}{#1}}
+\newcommand{\Futr}[1]{\TRIOop{Futr}{}{#1}}
+\newcommand{\Som}[1]{\TRIOop{Som}{}{#1}}
+\newcommand{\SomP}[2]{\TRIOop{SomP}{#1}{#2}}
+\newcommand{\SomF}[2]{\TRIOop{SomF}{#1}{#2}}
+\newcommand{\Alw}[1]{\TRIOop{Alw}{}{#1}}
+\newcommand{\AlwP}[2]{\TRIOop{AlwP}{#1}{#2}}
+\newcommand{\AlwF}[2]{\TRIOop{AlwF}{#1}{#2}}
+\newcommand{\Lasted}[2]{\TRIOop{Lasted}{#1}{#2}}
+\newcommand{\Lasts}[2]{\TRIOop{Lasts}{#1}{#2}}
+\newcommand{\Within}[2]{\TRIOop{Within}{#1}{#2}}
+\newcommand{\WithinP}[2]{\TRIOop{WithinP}{#1}{#2}}
+\newcommand{\WithinF}[2]{\TRIOop{WithinF}{#1}{#2}}
+\newcommand{\Since}[1]{\TRIOop{Since}{}{#1}}
+\newcommand{\Until}[1]{\TRIOop{Until}{}{#1}}
+\newcommand{\UpToNow}[1]{\TRIOop{UpToNow}{}{#1}}
+\newcommand{\NowOn}[1]{\TRIOop{NowOn}{}{#1}}
+\newcommand{\Becomes}[1]{\TRIOop{Becomes}{}{#1}}
+
+
+% --------------------------------------
+% Rely/guarantee operators and symbols
+% --------------------------------------
+
+% TLA while operator (as defined by Lamport)
+\newcommand{\TLAwhile}{-\hspace{-.16em}\triangleright}
+% TLA while plus operator (as defined by Lamport)
+\newcommand{\TLAwhileplus}{\stackrel{\mbox{\raisebox{-.3em}[0pt][0pt]{$\scriptscriptstyle+\;\,$}}}{\TLAwhile}}
+
+% TRIO time progression operator
+\newcommand{\timeprogression}{\twoheadrightarrow}
+
+% rely/guarantee
+\newcommand{\rg}{rely/guar\-an\-tee}
+% Rely/Guarantee
+\newcommand{\RG}{Rely/Guar\-an\-tee}
+% Rely/guarantee
+\newcommand{\Rg}{Rely/guar\-an\-tee}
+% RELY/GUARANTEE
+\newcommand{\RRGG}{RELY/GUAR\-AN\-TEE}
+
+
+
+% ----------------------------------------------------------
+% Macros commonly used to introduce TRIO items or formulas
+% ----------------------------------------------------------
+
+% Generic TRIO item
+\DeclareRobustCommand{\TRIOitem}[2] % item_name, argument
+{\ensuremath{%
+	 \mathsf{#1} % the item's name is typeset in sans-serif
+	 % if item argument (#2) is nonempty, add it
+	 \ifthenelse{\not \equal{#2}{}} {\!\left({#2}\right)} {}%
+  }%
+}
+
+% How to typeset a formula's name: boldface
+\newcommand{\fname}[1]{\textbf{#1}}
+
+% he/she, etc.
+\newcommand{\he}{he/she}
+\newcommand{\his}{his/her}
+\newcommand{\him}{him/her}
+
+
+
+% ---------------------------------------------------------------
+% How to get symbolic (i.e. name) references instead of numeric
+% ---------------------------------------------------------------
+
+% syntax: \namelabel{label}{name}
+\def\namelabel#1#2{%
+  % Do a usual label command (so a name label is also a regular label)
+  \label{#1}
+  % write on aux {label}{num, pagenum}{name}
+  \@bsphack
+  \protected@write\@auxout{}%
+		{\string\newnamelabel{#1}{#2}}%
+  \@esphack}
+% define a global name n@label@name for name
+\def\newnamelabel#1#2{%
+  \@ifundefined{n@#1}%
+    \relax
+  {\gdef \@multiplelabels {% multiply-defined label
+		\@latex@warning@no@line{There were multiply-defined name labels}}%
+	 \@latex@warning@no@line{Name label `#1' multiply defined}}%
+  \global\@namedef{n@#1@name}{#2}}
+
+% retrieve a symbolic reference (similar to \ref)
+\def\nref#1{%
+  \expandafter\@ifundefined{n@#1@name}%
+  {\textbf{?}}%
+  {\csname n@#1@name\endcsname}%
+}
+
+
+
+% --------------------------
+% Some useful math symbols
+% --------------------------
+
+% how to typeset a numeric set (e.g. N, Z, etc...)
+\def\numset#1{\mathds{#1}}
+
+% naturals
+\newcommand{\booleans}{\numset{B}}
+\newcommand{\naturals}{\numset{N}}
+\newcommand{\integers}{\numset{Z}}
+\newcommand{\rationals}{\numset{Q}}
+\newcommand{\irrationals}{\numset{F}}
+\newcommand{\reals}{\numset{R}}
+\newcommand{\imaginary}{\numset{I}}
+\newcommand{\complex}{\numset{C}}
+\newcommand{\timedomain}{\numset{T}}
+
+% double square brackets (e.g. [[f]] =is models of formula f)
+\newcommand{\ldoubsq}{[\![}
+\newcommand{\rdoubsq}{]\!]}
+
+
+
+% -----------------------------------------------------------
+% Macros for typesetting classes of languages and formalisms
+% -----------------------------------------------------------
+
+% the first argument is the class' name and goes in the middle; then you can add super/subscript on the right/left
+\DeclareRobustCommand{\LFClass}[5] % ^#4_#5 #1 ^#2_#3
+{\ensuremath{%
+	 \ifthenelse{ \not \equal{#4}{} \OR \not \equal{#5}{} } {^{#4}_{#5}} { }
+	 {#1}
+	 \ifthenelse{ \not \equal{#2}{} \OR \not \equal{#2}{} } {^{#2}_{#3}} { }
+  }%
+}%
+
+% classes of languages are typeset in bold sans-serif fonts (\mathsf)
+\newcommand{\languageclass}[5]{\LFClass{\text{\textbf{\textsf{#1}}}}{\mathrm{#2}}{#3}{#4}{#5}}
+
+% classes of formalisms are typeset in small caps (\textsc)
+\newcommand{\formalismclass}[5]{\LFClass{\text{\textsc{#1}}}{\mathrm{#2}}{#3}{#4}{#5}}
+
+
+
+% ----------------------------------
+% MTl temporal operators
+% ----------------------------------
+
+\DeclareRobustCommand{\MTLoperator}[4] % #1: operator_symbol, #2: subscript (if any), #3: superscript (if any), #4: argument (if any)
+{\ensuremath{%
+	 % if subscript argument (#2) is nonempty, add subscript and superscript appropriately
+	 \ifthenelse{\not \equal{#2}{}} {{#1}_{{#2}}^{#3}} {{#1}}
+	 % if argument (#4) is nonempty, add argument between parentheses
+	 \ifthenelse{\not \equal{#4}{}} {\!\left({#4}\right)} {}
+  }%
+}%
+
+\def\boxsymbol{\Box}
+\def\diamondsymbol{\Diamond}
+\def\circsymbol{\bigcirc}
+\def\boxPsymbol{\overrightarrow{\boxsymbol}}
+\def\diamondPsymbol{\overrightarrow{\diamondsymbol}}
+\def\circPsymbol{\overrightarrow{\circsymbol}}
+
+%% First variant: with boxes and diamonds
+\newcommand{\boxMTL}[2]{\MTLoperator{\boxsymbol}{#1}{}{#2}}
+\newcommand{\boxstrMTL}[2]{\MTLoperator{\widetilde{\boxsymbol}}{#1}{}{#2}}
+\newcommand{\boxFMTL}[2]{\MTLoperator{\overrightarrow{\boxsymbol}}{#1}{}{#2}}
+\newcommand{\boxPMTL}[2]{\MTLoperator{\boxPsymbol}{#1}{}{#2}}
+
+\newcommand{\diamondMTL}[2]{\MTLoperator{\diamondsymbol}{#1}{}{#2}}
+\newcommand{\diamondstrMTL}[2]{\MTLoperator{\widetilde{\diamondsymbol}}{#1}{}{#2}}
+\newcommand{\diamondFMTL}[2]{\MTLoperator{\overrightarrow{\diamondsymbol}}{#1}{}{#2}}
+\newcommand{\diamondPMTL}[2]{\MTLoperator{\diamondPsymbol}{#1}{}{#2}}
+
+\newcommand{\relMTL}[2]{\MTLoperator{\mathsf{R}}{#1}{}{#2}}
+\newcommand{\relstrMTL}[2]{\MTLoperator{\widetilde{\mathsf{R}}}{#1}{}{#2}}
+\newcommand{\relMMTL}[2]{\MTLoperator{\mathsf{R}}{#1}{\downarrow}{#2}}
+\newcommand{\redMTL}[2]{\MTLoperator{\mathsf{T}}{#1}{}{#2}}
+\newcommand{\redstrMTL}[2]{\MTLoperator{\widetilde{\mathsf{T}}}{#1}{}{#2}}
+\newcommand{\redMMTL}[2]{\MTLoperator{\mathsf{T}}{#1}{\downarrow}{#2}}
+
+\newcommand{\untilMTL}[2]{\MTLoperator{\mathsf{U}}{#1}{}{#2}}
+\newcommand{\untilQMTL}[1]{\MTLoperator{\mathsf{U}}{}{}{#1}}
+\newcommand{\untilweakMTL}[2]{\MTLoperator{\mathsf{U}}{ }{\mathrm{w}}{#2}}
+\newcommand{\untilweakstrMTL}[2]{\MTLoperator{\widetilde{\mathsf{U}}}{ }{\mathrm{w}}{#2}}
+\newcommand{\untilweakMMTL}[2]{\MTLoperator{\mathsf{U}}{ }{\mathrm{w}\downarrow}{#2}}
+\newcommand{\untilweakstrMMTL}[2]{\MTLoperator{\widetilde{\mathsf{U}}}{ }{\mathrm{w}\downarrow}{#2}}
+\newcommand{\untilMMTL}[2]{\MTLoperator{\mathsf{U}}{#1}{\downarrow}{#2}}
+\newcommand{\untilNMTL}[2]{\MTLoperator{\mathsf{U}}{#1}{\uparrow}{#2}}
+\newcommand{\untilstrMTL}[2]{\MTLoperator{\widetilde{\mathsf{U}}}{#1}{}{#2}}
+\newcommand{\untilstrMMTL}[2]{\MTLoperator{\widetilde{\mathsf{U}}}{#1}{\downarrow}{#2}}
+\newcommand{\untilstrNMTL}[2]{\MTLoperator{\widetilde{\mathsf{U}}}{#1}{\uparrow}{#2}}
+
+\newcommand{\sinceMTL}[2]{\MTLoperator{\mathsf{S}}{#1}{}{#2}}
+\newcommand{\sinceQMTL}[1]{\MTLoperator{\mathsf{S}}{}{}{#1}}
+\newcommand{\sinceweakMTL}[2]{\MTLoperator{\mathsf{S}}{ }{\mathrm{w}}{#2}}
+\newcommand{\sinceweakstrMTL}[2]{\MTLoperator{\widetilde{\mathsf{S}}}{ }{\mathrm{w}}{#2}}
+\newcommand{\sinceweakMMTL}[2]{\MTLoperator{\mathsf{S}}{ }{\mathrm{w}\downarrow}{#2}}
+\newcommand{\sinceweakstrMMTL}[2]{\MTLoperator{\widetilde{\mathsf{S}}}{ }{\mathrm{w}\downarrow}{#2}}
+\newcommand{\sinceMMTL}[2]{\MTLoperator{\mathsf{S}}{#1}{\downarrow}{#2}}
+\newcommand{\sinceNMTL}[2]{\MTLoperator{\mathsf{S}}{#1}{\uparrow}{#2}}
+\newcommand{\sincestrMTL}[2]{\MTLoperator{\widetilde{\mathsf{S}}}{#1}{}{#2}}
+\newcommand{\sincestrMMTL}[2]{\MTLoperator{\widetilde{\mathsf{S}}}{#1}{\downarrow}{#2}}
+\newcommand{\sincestrNMTL}[2]{\MTLoperator{\widetilde{\mathsf{S}}}{#1}{\uparrow}{#2}}
+
+\newcommand{\nowonMTL}[1]{\MTLoperator{\circsymbol}{}{}{#1}}
+\newcommand{\uptonowMTL}[1]{\MTLoperator{\circPsymbol}{}{}{#1}}
+\newcommand{\nowonstrMTL}[1]{\MTLoperator{\widetilde{\circsymbol}}{}{}{#1}}
+\newcommand{\uptonowstrMTL}[1]{\MTLoperator{\widetilde{\overleftarrow{\circsymbol}}}{}{}{#1}}
+
+
+%% Second variant: with letters and without pre-set parentheses
+\newcommand{\Gmtl}[1]{\MTLoperator{\mathsf{G}}{#1}{}{}}
+\newcommand{\Fmtl}[1]{\MTLoperator{\mathsf{F}}{#1}{}{}}
+\newcommand{\Umtl}[1]{\:\MTLoperator{\mathsf{U}}{#1}{}{}\,}
+\newcommand{\Rmtl}[1]{\:\MTLoperator{\mathsf{R}}{#1}{}{}\,}
+\newcommand{\Xmtl}[1]{\MTLoperator{\mathsf{X}}{#1}{}{}}
+
+\newcommand{\Hmtl}[1]{\MTLoperator{\mathsf{H}}{#1}{}{}}
+\newcommand{\Pmtl}[1]{\MTLoperator{\mathsf{P}}{#1}{}{}}
+\newcommand{\Smtl}[1]{\:\MTLoperator{\mathsf{S}}{#1}{}{}\,}
+\newcommand{\Tmtl}[1]{\:\MTLoperator{\mathsf{T}}{#1}{}{}\,}
+\newcommand{\Ymtl}[1]{\MTLoperator{\mathsf{Y}}{#1}{}{}}
+
+\newcommand{\Gfmtl}[1]{\MTLoperator{\mathsf{G}}{#1}{+}{}}
+\newcommand{\Ffmtl}[1]{\MTLoperator{\mathsf{F}}{#1}{+}{}}
+\newcommand{\Ufmtl}[1]{\:\MTLoperator{\mathsf{U}}{#1}{+}{}\,}
+\newcommand{\Rfmtl}[1]{\:\MTLoperator{\mathsf{R}}{#1}{+}{}\,}
+\newcommand{\Xfmtl}[1]{\MTLoperator{\mathsf{X}}{#1}{+}{}}
+\newcommand{\Gpmtl}[1]{\MTLoperator{\mathsf{G}}{#1}{-}{}}
+\newcommand{\Fpmtl}[1]{\MTLoperator{\mathsf{F}}{#1}{-}{}}
+\newcommand{\Upmtl}[1]{\:\MTLoperator{\mathsf{U}}{#1}{-}{}\,}
+\newcommand{\Rpmtl}[1]{\:\MTLoperator{\mathsf{R}}{#1}{-}{}\,}
+\newcommand{\Xpmtl}[1]{\MTLoperator{\mathsf{X}}{#1}{-}{}}
+
+\newcommand{\Gltl}{\Gmtl{}}
+\newcommand{\Fltl}{\Fmtl{}}
+\newcommand{\Ultl}{\Umtl{}}
+\newcommand{\Rltl}{\Rmtl{}}
+\newcommand{\Xltl}{\Xmtl{}\,}

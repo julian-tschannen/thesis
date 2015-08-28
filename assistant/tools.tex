@@ -1,0 +1,38 @@
+%============================================================================
+\section{The Tools of \EVE} \label{tools-of-eve}
+%============================================================================
+
+The integrated verification techniques currently available in \EVE 
+and partially illustrated in the preceding example session relies on several 
+tools that are integrated in \EVE: \AutoProof, \AutoTest, and the \Inspector, which are now presented.
+
+%----------------------------------------------------------------------------
+\subsubsection{\AutoTest}
+%----------------------------------------------------------------------------
+
+\AutoTest~\cite{MEYER09}---now a standard component of commercial EiffelStudio---is a fully automatic contract-based testing tool.
+\AutoTest generates objects by random calls to creation procedures.
+Preconditions select valid inputs and postconditions serve as oracles: every test case consists of the execution of a routine on objects satisfying its precondition; if executing the routine violate its postcondition or calls another routine without satisfying its precondition, the routine tested has a fault.
+\AutoTest is fully automatic and does not need any user input. Since contracts are used as test oracles, the tool can find functional correctness bugs.
+A failing test case provides a concrete error report which is useful for debugging.
+
+Like any dynamic technique based on execution, \AutoTest handles every feature of the source language (Eiffel).
+Among its limitations, instead, is that random testing can take several hours to find the most subtle faults, and that complex specifications can exacerbate this problem.
+
+
+%----------------------------------------------------------------------------
+\subsubsection{\AutoProof}
+%----------------------------------------------------------------------------
+
+\AutoProof is an auto-active verifier of full functional correctness and has been described in Chapter~\ref{sec:ap}.
+\AutoProof supports some advanced language constructs such as function objects (agents in Eiffel terminology). Nonetheless, some features of Eiffel---most notably exceptions and floating point arithmetic---are still unsupported and routines using them are not adequately translated to Boogie.
+The performance of \AutoProof depends on the quality of contracts available; accurate contracts improve the modularity of the analysis which can then also verify partial implementations.
+
+
+%----------------------------------------------------------------------------
+\subsubsection{\Inspector}
+%----------------------------------------------------------------------------
+
+The \Inspector~\cite{ZURFLUH14} is a light-weight code analysis tool to find code smells and simple coding errors along the lines of PMD for Java~\cite{PMD} or FxCop for C\#~\cite{FXCOP}. The \Inspector has an extendible rule system and a large set of implemented rules focusing on code smells like overly complex implementations or simplifiable expressions and also a few coding errors like wrongly used loop iterators. The analysis is in general quick and supports the full Eiffel language.
+
+

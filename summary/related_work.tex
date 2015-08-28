@@ -1,0 +1,222 @@
+%############################################################################
+\section{Related Work}\label{sec:intro:related}
+%############################################################################
+
+%huge body of work exists in verification
+%we focus on a few specific things
+%  - working towards making verification a standard part of software engineering, IDE support
+%  - Eiffel
+%  - integration of verification in EVE
+%  - deductive verification of Eiffel
+
+A large amount of research exists in the area of software verification.
+The work in this thesis falls in a subset outlined by the following criteria:
+\begin{itemize}
+\item
+Functional verification of object-oriented programs equipped with contracts, including object-oriented idioms like inheritance and collaborative structures.
+
+\item
+Automated verification using an intermediate verification language based on deductive verification.
+
+\item
+Integrating different automated verification tools in an IDE, providing a unified interface.
+
+\end{itemize}
+This section discusses related work for each of these three general areas.
+Later chapters contain additional related work sections focusing on more specific topics.
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Programming Languages With Support for Verification}
+%----------------------------------------------------------------------------
+
+Verifying correctness of programs written in a general-purpose programming language is a daunting task.
+To tackle automated verification of functional properties, a specification and the semantics of a programming language needs to be expressible in machine-readable form as well.
+Some programming languages have been designed with support for specifications, others have support added on top of the language through comments, language extensions, or embedded through existing language mechanisms.
+The following is a non-exhaustive list of programming languages with support for verification.
+
+\paragraph{Boogie}
+
+Boogie~\cite{LEINO08} is both an imperative programming language and a verifier.
+The language supports first-order logic specifications and the definition of logic theories.
+The verifier takes a Boogie program and generates verification conditions that can be discharged by SMT solvers such as Z3~\cite{MOURA08} or Simplify~\cite{DETLEFS05}.
+Boogie has been used as an intermediate verification language for a number of verifiers, e.g. \AutoProof, Dafny~\cite{LEINO10}, or VCC~\cite{COHEN09}.
+We use the Boogie language to model and verify the Eiffel language by mapping the object-oriented semantics to a procedural representation.
+
+\paragraph{CodeContracts}
+
+CodeContracts~\cite{BARNETT10} offers embedded contracts for the .NET platform through a contract library that allows one to express the specifications as part of the program.
+Developers call the contract library's methods for different types of specifications such as pre- and postconditions, and write the specifications as arguments to these methods.
+The CodeContracts framework supports both static checking and runtime monitoring of assertions~\cite{FAEHNDRICH10} (the latter through a post-build instrumentation step).
+While CodeContracts offer the full range of specifications---including class invariants and contracts for abstract classes---through method annotations, the CodeContracts Checker~\cite{LOGOZZO12} focuses on properties verifiable without additional annotations, and does not target complex inter-dependencies idiomatic in some object-oriented patterns.
+\AutoProof takes a different angle, focusing on the verification of complex properties including class invariants and aliasing.
+This requires users of \AutoProof to provide more extensive annotations.
+
+\paragraph{Dafny}
+
+The Dafny~\cite{LEINO10} language and verifier were designed to work with specifications based on dynamic frames~\cite{KASSIOS06}.
+Dafny has built-in support for contracts and allows the use of ghost code, making it possible to write expressive specifications.
+Verification is achieved through a translation to Boogie and Dafny programs can be executed by generating .NET code.
+Dafny is well-suited to verify algorithmic problems, but it does not support object-oriented concepts used in mainstream languages, for example inheritance.
+
+\paragraph{Eiffel}
+
+In our work we have used Eiffel~\cite{MEYER97}, a general-purpose object-oriented programming language that offers embedded contracts and user-defined annotations.
+Since Eiffel has support for contracts since its creation, Eiffel programmers are familiar with writing contracts~\cite{ESTLER14}.
+More recent versions of the Eiffel language have added support for loop expressions, which can be leveraged to express bounded quantification in assertions.
+One of the underlying goals of this thesis is to work towards supporting the static verification of the full Eiffel language.
+
+\paragraph{JML}
+
+The Java Modeling Language (JML)~\cite{LEAVENS05} is a specification language for Java.
+Contracts are expressed through special comments in the source code.
+Multiple verifiers exist that work on Java programs annotated with JML, for example KeY~\cite{BECKERT07}, ESC/Java2~\cite{COK05,CHALIN06}, Krakatoa~\cite{FILLIATRE07}, and OpenJML~\cite{COK11}.
+These tools focus on simpler properties and do not offer much support for verifying idiomatic object-oriented patterns, for example when collaborative structures are involved.
+In \AutoProof we have implemented a methodology to handle such programs.
+
+\paragraph{SPARK}
+
+The goal of the SPARK programming language~\cite{BARNES03} is to provide a language and the tools for high-integrity applications.
+SPARK is a subset of the Ada language, which adds direct support for contracts in its latest version~\cite{ADA2012} (previously annotations were given in the form of special comments).
+To make verification of large systems feasible, SPARK restricts the Ada language to a verifiable subset, for example removing the possibility to manipulate data structures in the heap~\cite{BRITO10}.
+This allows the verification of large-scale systems at the cost of reducing programmer flexibility.
+The latest version of SPARK leverages the Why3~\cite{FILLIATRE13} infrastructure for verification.
+
+\paragraph{Spec\#}
+
+Spec\#~\cite{BARNETT05,BARNETT11} works on an annotation-based dialect of the C\# language---in contrast to the newer CodeContracts that follows a library approach---and supports an ownership model which is suitable for hierarchical object structures; as well as visibility-based invariants to specify more complex object relations.
+Spec\# was the forerunner in a new research direction, also followed by \AutoProof, that focuses on the complex problems raised by object-oriented structures with sharing, object hierarchies, and collaborative patterns.
+Collaborative object structures as implemented in practice require, however, more flexible methodologies~\cite{POLIKARPOVA14} not currently available in Spec\#, which we developed and implemented in \AutoProof.
+
+\paragraph{VCC}
+
+VCC~\cite{COHEN09} is a verifier for annotated concurrent C programs.
+It supports object invariants but with an emphasis on memory safety of low-level concurrent code.
+VCC programs are verified through Boogie and Z3.
+Although VCC is very powerful, it does not support object-oriented concepts, which is what we focus on with \AutoProof.
+
+\paragraph{Why3}
+
+The Why3~\cite{FILLIATRE13} language is a dialect of ML---a functional programming language---that allows to write theories as well as contract-equipped programs.
+Why3 programs can be verified using the Why3 platform and transformed to OCaml programs in a correct-by-construction approach.
+The Why3 language is used as an intermediate verification language for several languages; for example SPARK, Java (using the Krakatoa verifier~\cite{FILLIATRE07}), and C (using the Frama-C framework~\cite{CUOQ12}).
+Why3 is a functional language and focuses on algorithmic problems, whereas we work on object-oriented programs.
+
+
+\paragraph{Soundness}
+
+The verification tools mentioned above have different trade-offs with respect to soundness. While a few tools offer sound verification (modulo bugs in the implementation), many tools have sources of unsoundness, either to simplify the analysis in favor of other features such as scalability, or as a result of not accurately supporting some features of the source language.
+
+The two verifiers Boogie~\cite{LEINO08} and Why3~\cite{FILLIATRE13} offer sound verification with respect to their input language (an intermediate language for verification). Soundness is modulo axiomatic theory: both verifiers allow users to manually introduce axioms, which is a source of potential unsoundness if used wrongly.
+
+The CodeContracts~\cite{LOGOZZO12} checker makes a few unsound assumptions~\cite{CHRISTAKIS15}, for example with respect to aliasing, trading full functional correctness for speed and large scalability.
+
+ESC/Java2~\cite{COK05,CHALIN06} and OpenJML~\cite{COK11} are both unsound~\cite{KINIRY06,COK08}. For example, ESC/Java2 has unsound treatment of machine integers, inherited annotations, or static initializers. Both ESC/Java2 and OpenJML do not support a full-fledged methodology to reason about complex class invariants, such as for collaborative dependencies. 
+
+Spec\#~\cite{BARNETT05} uses a sound methodology for class invariants, but introduces some unsoundness by treating integer types as mathematical integers and by ignoring exceptional paths.
+
+Our tool, \AutoProof, has a sound methodology for complex, collaborative class invariants. \AutoProof does not support the full Eiffel language and therefore exhibits unsoundness whenever unsupported code constructs are used (see Appendix~\ref{manual:lang-support} for a detailed list of unsupported language features). It models integers as mathematical integers or as machine integer (with overflow checking) according to a user setting.
+
+The Dafny~\cite{LEINO10}, SPARK~\cite{BARNES03}, and VCC~\cite{COHEN09} verifiers are sound and fully support their input languages.
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Formal Verification Techniques}
+%----------------------------------------------------------------------------
+
+Formal proofs of programs have been made since before the 1950s~\cite{MORRIS84}.
+Since then, different automated verification techniques have emerged.
+
+\paragraph{Abstract Interpretation}
+
+Abstract interpretation~\cite{COUSOT77,COUSOT79} uses sound approximation of programs based on abstract domains.
+Due to the nature of abstraction, false positives might be reported.
+Techniques exist to improve the precision of abstract interpretation, for example 
+Craig interpolation~\cite{CRAIG57} can be used to guide abstract interpretation away from false alarms~\cite{ALBARGHOUTHI12} by refining invariants produced by abstract interpretation.
+Abstract interpretation can be used for contract inference~\cite{COUSOT11,COUSOT13}.
+The Boogie verifier uses abstract interpretation to infer loop invariants~\cite{BARNETT05b}.
+The CodeContracts static checker~\cite{FAEHNDRICH10,LOGOZZO12} (formerly known as Clousot) uses abstract interpretation to check absence of runtime errors for .NET programs and can verify correctness of .NET programs equipped with contracts.
+Abstract interpretation targets scalability and speed with little or no manual annotations.
+It generally focuses on predefined, somewhat restricted properties rather than full functional correctness of object-oriented programs with complex properties.
+In our work with \AutoProof we provide a different trade-off by allowing precise modeling of object-oriented features and complex dependencies, which entails less automation and more annotation burden in exchange for handling arbitrarily complex properties and fine-grained object structures.
+
+\paragraph{Model Checking}
+
+In model checking~\cite{CLARKE81}, the program is modeled as a finite state machine with specifications expressed through temporal logic. 
+The program is checked by exploring the state-space looking for sequences violating the specification; if such a sequence is found, a counterexample is extracted from the model.
+If the counterexample is spurious, it can be used to refine the abstraction used to obtain the model.
+This general scheme is known as counterexample-guided abstraction refinement (CEGAR)~\cite{CLARKE03} and used in practice by model checkers such as SLAM~\cite{BALL02} or BLAST~\cite{BEYER07}.
+Predicate abstraction~\cite{GRAF97} can be used to reduce the size of the model by expressing the program through predicates only.
+In bounded model checking~\cite{BIERE99,BIERE03}, the finite state machine is only explored for a fixed number of steps until a certain bound is reached.
+Model checkers provide a high degree of automation and can check safety properties without any annotations.
+We focus on full functional verification of complex properties, which is not the target of model checkers.
+
+\paragraph{Deductive Verification}
+
+In deductive verification, proof obligations are generated from a program's implementation and specification in a way that the correctness of the proof obligations imply the correctness of the program~\cite{HOARE69}.
+The goal is then to discharge the proof obligations using theorem provers.
+SMT solvers like Simplify~\cite{DETLEFS05}, CVC3~\cite{BARRETT07}, or Z3~\cite{MOURA08} can be used to discharge proof obligations automatically.
+SMT solvers are sound but in general incomplete, and therefore might report false positives when the verification fails.
+Interactive proof assistants such as PVS~\cite{OWRE92}, Isabelle~\cite{NIPKOW02}, or Coq~\cite{COQ} discharge the proof obligations by constructing proofs using a range of proof strategies (also called tactics).
+When a proof cannot be constructed automatically, the user has to guide the verification by selecting the appropriate proof strategy or introducing intermediate verification steps.
+The interactive nature allows to verify complex properties only limited by the user himself.
+\AutoProof is a deductive verifier using an SMT solver in the back-end; it is therefore fully automatic but suffers from false positives and might fail to verify a correct program.
+
+
+%----------------------------------------------------------------------------
+\subsubsection{IDEs and Frameworks Designed for Verification}
+%----------------------------------------------------------------------------
+
+In an often parallel effort to increase support for verification in programming languages, development environments and compiler frameworks for specialized and mainstream programming languages have improved support for verification.
+
+\paragraph{Eiffel Verification Environment}
+
+The tools presented in this thesis have been integrated in the Eiffel Verification Environment (\EVE)~\cite{EVE}, a research branch of the EiffelStudio IDE~\cite{EIFFELSTUDIO}.
+The EVE IDE contains different tools focused on correct software:
+AutoFix~\cite{PEI15}, to generate fixes for detected faults;
+AutoInfer~\cite{WEI11}, to infer contracts based on program execution;
+AutoTest~\cite{MEYER09}, an automatic test case generator;
+and \AutoProof~\cite{TSCHANNEN15}, an automatic verifier developed as part of this thesis.
+The \VAssist is built on top of \AutoTest and \AutoProof and integrated in \EVE.
+
+\paragraph{Frama-C}
+
+Frama-C~\cite{CUOQ12} is an extensible platform to analyze and verify C programs.
+Different tools work with the common specification language ACSL~\cite{ACSL}.
+Frama-C has a consolidation algorithm to combine results from different tools~\cite{CORRENSON12}.
+This allows individual tools to only check a subset of the desired correctness properties and then infer the correctness of the overall program by combining the partial results.
+Our approach combines verification tools on a higher level, working on the coarser granularity of routines, but allowing to combine widely different techniques.
+Frama-C provides a stand-alone graphical user interface to evaluate the analysis.
+We integrated our work in an IDE to offer a single interface for both developing and verifying code.
+
+\paragraph{SPARK Pro}
+
+SPARK Pro~\cite{SPARKPRO} is an integrated development and verification environment for the SPARK programming language~\cite{BARNES03}.
+It allows to check a SPARK program for absence of runtime and coding errors.
+SPARK programs equipped with contracts can be checked for safety and security properties as well as functional correctness.
+SPARK Pro offers integration of automatic proofs with a framework to write manual unit tests. Tests are only necessary for properties that have not been verified, but they are written manually.
+In \EVE, we focus on integration fully automated verification tools, including an automated verifier and an automated test generator.
+
+\paragraph{UFO}
+
+The UFO framework~\cite{ALBARGHOUTHI12b,ALBARGHOUTHI12c} is built on top of the LLVM compiler infrastructure~\cite{LATTNER04} and targets the verification of safety properties of sequential C programs.
+The framework supports model checking techniques based on under-approximation, over-approximation, and combined under- and over-approximation.
+In contrast, we offer integration of different verification techniques such as static verification and testing.
+
+\paragraph{VisualStudio}
+
+The VisualStudio~\cite{VISUALSTUDIO} IDE features a plug-in architecture supporting multiple programming languages and tools.
+For the .NET platform, VisualStudio integrates---among other tools---with the automatic test suite generator Pex~\cite{TILLMANN08} and offers embedded specifications through CodeContracts~\cite{BARNETT10}.
+Programs equipped with contracts can be checked statically through the CodeContracts checker~\cite{LOGOZZO12}.
+An extension to VisualStudio supporting the Dafny language is available~\cite{LEINO14}.
+The integration with Dafny addresses user interface issues existing in other verification IDEs, providing better integration with the back end verifier and debugger through as-you-type feedback and improved messages.
+In \AutoProof we have implemented two-step verification to improve error messages.
+Integration with a verification debugger is not yet available in \AutoProof.
+
+\paragraph{Why3}
+
+Why3~\cite{FILLIATRE13} is a programming language and a platform for program verification.
+The Why3 platform uses multiple back-end verifiers to discharge verification conditions generated from Why3 programs.
+For this, developers can use both automatic verifiers and interactive proof assistants~\cite{BOBOT11}.
+The Why3 platform is a potential back-end for \AutoProof, but not supported at the moment.
+

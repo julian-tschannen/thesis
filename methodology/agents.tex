@@ -1,0 +1,316 @@
+\section{Function Objects}
+\label{sec:m-agents}
+
+
+
+Eiffel programs can use \emph{agents}---called function objects, closures, or delegates in other languages.
+Supporting agents in verification poses a number of challenges; Section~\ref{formatter-example-intro} illustrates the main challenges while succinctly describing Eiffel agents' syntax and semantics with an example.
+Then, Section~\ref{specifying-func-ob} discusses how to specify agents; Sections~\ref{reasoning} and~\ref{reasoning_closed_arg} describe the translation of agents implemented in \AutoProof; and Section~\ref{framing} presents how the translation handles framing.
+
+
+\subsection{An Example Using Agents}\label{formatter-example-intro}
+
+We illustrate the challenges of verifying agents using an example by Leavens et al.~\cite{LeavensLeinoMueller07} adapted for Eiffel.
+Consider a class \e{FORMATTER} that collects routines operating on paragraphs.
+The class includes, among others, the routine \e{align_left  (p: PARAGRAPH)} that aligns to the left the text in paragraph \e{p}, passed as argument.
+For some details of its implementation that we need not delve into, the routine requires that the paragraph is not already aligned to the left; if executed correctly, it ensures that \e{p} is changed so that it is left aligned.
+Assuming class paragraph includes a (pure) routine \e{left_aligned} that returns true when called on paragraphs that are left aligned, we can write \e{align_left}'s specification in \e{FORMATTER} as:
+
+%\small
+\begin{lstlisting}[language=Eiffel, escapechar=\#]
+     class  FORMATTER
+
+       align_left (p: PARAGRAPH)      
+         require                     
+             not p.left_aligned             
+         do                          
+            -- Operations on #\textit{p}#
+         ensure                      
+             p.left_aligned
+         end
+
+     end
+\end{lstlisting}
+% 
+Class \e{FORMATTER} includes other routines that operate on paragraphs, such as \e{align_right}, \e{justify}, and \e{add_margin}, each with its proper specification.
+
+Clients of class \e{FORMATTER} can apply any given routine of the class to objects of type \e{PARAGRAPH}.
+To this end, class \e{PARAGRAPH} offers a routine \e{format} that takes a generic  routine of class \e{FORMATTER}---wrapped in an \e{agent}---and applies it to the current object of class \e{PARAGRAPH}.
+This is how \e{format} can be written in Eiffel:
+
+\begin{lstlisting}[language=Eiffel, escapechar=\#]
+     class PARAGRAPH
+
+       format (proc: PROCEDURE [FORMATTER, PARAGRAPH];
+                  f: FORMATTER)
+         do 
+             proc.call (f, Current) 
+         end
+
+     end
+\end{lstlisting}
+The first argument has type \e{PROCEDURE [FORMATTER, PARAGRAPH]}; this denotes an \e{agent}, whose target class is \e{FORMATTER}, with an argument of class \e{PARAGRAPH}:\footnote{For illustration purposes, we slightly simplify Eiffel's syntax and we limit ourselves to the case of single-argument routines. The generalization is humdrum.} in other words, if \e{f} has type \e{FORMATTER}, \e{p} has type paragraph, and \e{proc} wraps some routine \e{m} in \e{FORMATTER}, \e{f.m (p)} is a type-correct call.
+Agent invocation uses the different syntax shown in the example above: \e{proc.call (f, Current)} calls the routine wrapped by \e{proc} on the target \e{f}, passing it the \e{Current} object of class \e{PARAGRAPH} as argument.
+
+
+This showed how agents are invoked. Let us now demonstrate agent creation in Eiffel with a routine \e{apply_align_left} that calls \e{align_left} on a paragraph through \e{format}:
+
+\begin{lstlisting}[language=Eiffel, escapechar=\#]
+     apply_align_left (f:FORMATTER; p:PARAGRAPH)
+         require   
+             not p.left_aligned
+         do
+             p. format (agent {FORMATTER}.align_left , f )
+         ensure
+             p.left_aligned   
+         end
+\end{lstlisting}
+The expression \e{agent \{FORMATTER\}.align_left} denotes an agent that wraps routine \e{align_left} of class \e{FORMATTER}.\footnote{The keyword \e{agent} is necessary to disambiguate between a function object wrapping \e{align_left} and the invocation of \e{align_left}.}
+This agent definition does not bind the wrapped routine to a specific target or to an argument \e{p}; therefore, we call it an agent with \emph{open arguments}.
+In contrast, the expression \e{agent f.align_left (p)} denotes an agent with \emph{closed arguments}: the target is bound to \e{f} and the argument to \e{p}.
+
+Verifying \e{apply_align_left} boils down to proving the
+correctness of the call \e{p.format}.  This, in turn, requires:
+1) having a specification of \e{format}; 2) being able to
+discharge \e{format}'s precondition by means of
+\e{apply_align_left}'s and to establish
+\e{apply_align_left}'s postcondition from \e{format}'s; 3)
+specifying \e{format}'s frame and deduce
+\e{apply_align_left}'s frame from it.  In conformance with the
+general verification style of \AutoProof (and Boogie), we should handle these
+problems \emph{modularly}: \e{format}'s specification and
+correctness proof should be independent of how \e{format} is
+used by clients (and, in particular, which agents it receives as
+argument).  These are the challenges of verifying function objects:
+Section~\ref{specifying-func-ob} discusses how to write specifications
+for agents; Sections~\ref{reasoning} and \ref{reasoning_closed_arg}
+shows how \AutoProof uses agents; and Section~\ref{framing} deals with
+agent framing.
+
+
+
+
+
+\subsection{Specifying Agents}\label{specifying-func-ob}
+%----------------------------------------------------------------------------
+Agents are abstract placeholders for routines; the actual routine attached to an argument of type agent is, in general, known only dynamically.
+In fact, the purpose of agents is providing a generic container of routines; the specification of agents must conform to the same level of abstraction.
+
+In Eiffel, variables referring to agents all belong to class \e{ROUTINE} or some of its descendants (such as \e{PROCEDURE} in the \e{FORMATTER} example). Specification of agents can then use the functions \e{precondition} and \e{postcondition} of the class, which return a Boolean expression respectively corresponding to the \e{require} and \e{ensure} clause of the actual routine wrapped by an agent.
+In the running example, we can use these functions to specify \e{format} parametrically with respect to its argument \e{proc} of agent type:
+\begin{lstlisting}[language=Eiffel, escapechar=\#]
+     format (proc: PROCEDURE [FORMATTER, PARAGRAPH ]; 
+                f: FORMATTER)
+       require    
+           proc.precondition (f, Current)
+       do
+           proc.call (f, Current)
+       ensure
+           proc.postcondition (f, Current)
+       end
+\end{lstlisting}
+
+Using the same mechanism, we can also specify the generic pre- and postcondition of \e{call} in class \e{ROUTINE}:
+
+\begin{lstlisting}[language=Eiffel, escapechar=\#]
+     call  (target: ANY; p: ANY)
+       require
+           Current.precondition (target, p)
+       ensure
+           Current.postcondition (target, p)
+\end{lstlisting}
+
+\AutoProof's translation uses such generic specifications to reason modularly about the correctness of programs using agents, as described in the following subsections. 
+
+%\begin{figure}[t]
+%\begin{lstlisting}[language=Eiffel, escapechar=\#]
+%  call  (target: ANY; p: ANY)
+%    require   Current.precondition (target,p)
+%    ensure    Current.postcondition (target,p)
+%\end{lstlisting}
+%\caption{Specification of routine \textit{call} in class \textit{ROUTINE}.
+%\label{call-spec-fig}}
+%\end{figure}
+
+
+\subsection{Agents in Boogie: Open Arguments}\label{reasoning}
+%----------------------------------------------------------------------------
+
+This section describes the basics of \AutoProof's translation of Eiffel agents to Boogie; the presentation focuses on agents with open target and arguments.
+Section~\ref{reasoning_closed_arg} outlines how \AutoProof deals with closed arguments.
+
+
+
+\subsubsection{Translating agent specification.} 
+
+The translation introduces two uninterpreted Boolean functions to model
+the precondition and postcondition of agents:
+\begin{lstlisting}[escapechar=\#,numbers=left,language=Boogie]
+   function #\$#precondition(agent, target, argument: ref, h: HeapType) 
+                          returns(bool);
+   function #\$#postcondition(agent, target, argument: ref, h, $h_0$: HeapType) 
+                          returns(bool);
+\end{lstlisting} 
+The function arguments represent references to objects for the agent, its target, and its arguments, plus a copy of the heap $h$ and, for postconditions, the ``old'' heap $h_0$ before the agent was invoked.
+
+
+
+
+\subsubsection{Translating agent invocation.}
+Consider three reference variables $a$, $t$, and $p$, respectively representing an agent, a target object, and an argument object in the Boogie translation.
+The agent invocation \e{a.call (t, p)} is translated as follows:
+\begin{lstlisting}[escapechar=\#,numbers=left,language=Boogie]
+        assert #\$#precondition(a, t, p, Heap);
+        $h_0$ := Heap;
+        havoc Heap;
+        assume #\$#postcondition(a, t, p, Heap, $h_0$);
+\end{lstlisting} 
+That is, verify that $a$'s precondition holds of the current heap; save the heap to $h_0$ and nondeterministically change its content; assume that the new heap satisfies $a$'s postcondition.
+
+
+
+\subsubsection{Translating agent creation.}
+When an agent is created, we must bind the placeholders \boogie{$\$$precondition} and \boogie{$\$$postcondition} to the actual pre- and postcondition of the routine wrapped by the agent, so that they can be used in the correctness proofs to reason about agent usages.
+If $a$ represents in Boogie a reference attached to an agent created as \e{agent pr} from some routine \e{pr}, the following two assumptions bind \e{pr}'s pre- and postcondition (represented in Boogie by functions \boogie{pre.pr} and \boogie{post.pr}):
+\begin{lstlisting}[escapechar=\#,numbers=left,language=Boogie]
+    assume forall t, p: ref, $h_1$: HeapType :: 
+                  #\$#precondition(a, t, p, $h_1$) = pre.pr(t, p, $h_1$);
+    assume forall t, p: ref, $h_1, h_2$: HeapType :: 
+                  #\$#postcondition(a, t, p, $h_1$, $h_2$) = post.pr(t, p, $h_1$, $h_2$);
+\end{lstlisting} 
+
+
+
+
+\subsection{Agents in Boogie: Closed Arguments}\label{reasoning_closed_arg}
+%----------------------------------------------------------------------------
+This section discusses the translation of agents with either closed target or closed argument.
+The generalization to closed target \emph{and} argument is straightforward.
+
+
+\subsubsection{Translating agent specification.} 
+The translation introduces two uninterpreted Boolean functions with different signature to model
+the precondition and postcondition of agents with closed arguments:
+\begin{lstlisting}[escapechar=\#,numbers=left,language=Boogie]
+   function #\$#precondition$_1$(agent, arg: ref, h: HeapType) returns(bool);
+   function #\$#postcondition$_1$(agent, arg: ref, h, $h_0$: HeapType) returns(bool);
+\end{lstlisting} 
+The argument \boogie{arg} represents either a reference to the open target (if the agent's argument is closed) or a reference to the open argument (if the agent's target is closed).
+The other function arguments are as in Section~\ref{formatter-example-intro}.
+
+
+\subsubsection{Translating agent invocation.}
+Consider two reference variables $a$ and $p$, respectively representing an agent (with closed target) and an argument object in the Boogie translation.
+The agent invocation \e{a.call (p)} is translated as:
+\begin{lstlisting}[escapechar=\#,numbers=left,language=Boogie]
+        assert #\$#precondition$_1$(a, p, Heap);
+        $h_0$ := Heap;
+        havoc Heap;
+        assume #\$#postcondition$_1$(a, p, Heap, $h_0$);
+\end{lstlisting} 
+The same translation works if $a$ has closed argument and open target, and $p$ translates a reference to a target object.
+
+
+
+\subsubsection{Translating agent creation.}
+If $a$ represent in Boogie a reference attached to an agent created as \e{agent u.pr} from some routine \e{pr} and target \e{u}, the translation generates the following two assumptions:
+\begin{lstlisting}[escapechar=\#,numbers=left,language=Boogie]
+    assume forall p: ref, $h_1$: HeapType :: 
+                  #\$#precondition$_1$(a, p, $h_1$) = pre.pr(u, p, $h_1$);
+    assume forall p: ref, $h_1, h_2$: HeapType :: 
+                  #\$#postcondition$_1$(a, p, $h_1$, $h_2$) = post.pr(u, p, $h_1$, $h_2$);
+\end{lstlisting} 
+Similarly, if $b$ represent in Boogie a reference attached to an agent created as \e{agent pr (v)} from some routine \e{pr} and argument \e{v}, the translation generates the following two assumptions:
+\begin{lstlisting}[escapechar=\#,numbers=left,language=Boogie]
+    assume forall t: ref, $h_1$: HeapType :: 
+                  #\$#precondition$_1$(a, t, $h_1$) = pre.pr(t, v, $h_1$);
+    assume forall t: ref, $h_1, h_2$: HeapType :: 
+                  #\$#postcondition$_1$(a, t, $h_1$, $h_2$) = post.pr(t, v, $h_1$, $h_2$);
+\end{lstlisting} 
+
+
+
+
+
+%----------------------------------------------------------------------------
+\subsection{Framing of Agents} \label{framing}
+%----------------------------------------------------------------------------
+Eiffel does not offer explicit support to specify \emph{frame conditions}, that is the portion of the heap that a routine may modify.
+In principle, this is not necessary in many cases, because we can express changed and unchanged entities in postconditions.
+Following this intuition, \AutoProof offers a simple mechanism that can generate frame conditions in the simplest cases; we describe it in Section~\ref{sec:frame_inference}.
+
+When proving programs with agents, however, the kind of annotations necessary to express frame conditions in postconditions become cumbersome.
+This is essentially due to the fact that the frame of an agent depends, in general, also on its dynamically attached target and arguments, which need to be used in its frame specification.
+Therefore, we introduce \e{modify} clauses in Eiffel to specify agent framing.
+In practice, these are implemented as \e{note} annotations, which does not require changing the parser and guarantees compatibility with any version of the language.
+
+
+\subsubsection{Specifying frame conditions.}
+Following what we did for pre- and postconditions in Section~\ref{specifying-func-ob}, we equip class \e{ROUTINE} with a function \e{modifies} that returns the list of locations modified by the actual routine wrapped by an agent.\footnote{Since \e{modifies} is only used in \e{modify} clauses, which are not part of the Eiffel language, we need not provide any actual implementation of \e{modifies}.}
+\e{modify} clauses can then include both lists of object references that may be directly modified by a routine and lists of calls to \e{modifies} functions.
+The rest of the presentation considers agents with open target and arguments; the modifications necessary to deal with closed arguments are described in a technical report~\cite{NordioCalcagnoMeyerMueller08c}.
+In the running example, we can use this function to specify \e{format}'s frame as being whatever \e{proc} may modify when called on target \e{f} and argument \e{Current}:
+\begin{lstlisting}[language=Eiffel, escapechar=\#]
+     format (proc: PROCEDURE [FORMATTER, PARAGRAPH ]; 
+                f: FORMATTER)
+       modify
+           proc.modifies (f, Current)
+\end{lstlisting}
+
+
+
+
+
+
+
+
+
+\subsubsection{Translating modify clauses.}
+The translation introduces an uninterpreted function \boogie{$\$$modify}:
+\begin{lstlisting}[escapechar=\#,numbers=left,language=Boogie]
+     function #\$#modify(agent, target, arg: ref, h: HeapType, 
+                       obj: ref, fid: FieldId) returns(bool);
+\end{lstlisting} 
+The function arguments represent references to objects for an agent, its target, and its arguments, a copy of the heap, as well as an additional generic reference \boogie{obj} to an object and the identifier \boogie{fid} of one of its attributes (fields).
+Intuitively, if \boogie{$\$$modify(a, t, p, h, o, f)} is true, the call \e{a.call (t, p)} may modify the value of \e{o.f} in the heap \e{h}.
+
+\AutoProof translates a generic Eiffel \e{modify} clause of some routine \e{r}:
+\begin{lstlisting}[language=Eiffel, escapechar=\#]
+      modify $a_1$.modifies ($t_1$, $p_1$), ..., $a_m$.modifies ($t_m$, $p_m$), $o_1$, ..., $o_n$
+\end{lstlisting}
+into a postcondition clause of \e{r}'s translation to Boogie:
+\begin{lstlisting}[escapechar=\#,numbers=left,language=Boogie]
+ ensures forall o: ref, v: FieldId ::
+  (! #\$#modify($a_1$, $t_1$, $p_1$, Heap, o, v) && $\,\cdots$ && ! #\$#modify($a_m$, $t_m$, $p_m$, Heap, o, v) &&
+    o != $o_1$ && $\ \cdots\ $ && $\;$o != $o_n$)   $\quad$==>$\quad$ Heap[o, v] = old(Heap)[o, v]
+\end{lstlisting} 
+That is, all objects and attributes not explicitly mentioned in the \e{modify} clause (\e{$o_1$, ..., $o_n$}) and not modified by the agents (\e{modifies}) are certainly not changed by routine \e{r}.
+For example, the \e{format}'s \e{modify} clause translates to:
+\begin{lstlisting}[escapechar=\#,numbers=left,language=Boogie]
+ ensures forall o: ref, v: FieldId :: 
+  ! #\$#modify(proc, f, current, Heap, o, v)  ==> Heap[o, v] = old(Heap)[o, v]
+\end{lstlisting} 
+
+
+
+
+
+\subsubsection{Frame conditions from agent creation.}
+Finally, when an agent is created, we bind the placeholder \boogie{$\$$modify} to the actual locations modified by the routine wrapped by the agent.
+Similarly to what we showed in Section~\ref{reasoning} for pre- and postconditions, if \boogie{a} represents in Boogie a reference attached to an agent created as \e{agent pr} from some routine \e{pr}, the translation generates the assumption:
+\begin{lstlisting}[escapechar=\#,numbers=left,language=Boogie]
+    assume forall t, p, o: ref, v: FieldId, $h_1$: HeapType :: 
+                  #\$#modify(a, t, p, $h_1$, o, v) = modify.pr(t, p, $h_1$, o, v);
+\end{lstlisting} 
+where \boogie{modify.pr} represents the encoding of \boogie{pr}'s frame in Boogie (whose details are straightforward).
+
+
+
+
+\subsubsection{Current limitations.}
+The translation of agent framing currently implemented in \AutoProof does not support the specification of fine-grained frame disjointness properties.
+In particular, it is not possible to specify that the locations modified by two agents are disjoint.
+This is often necessary when reasoning about agents working on composite data structures.
+The Eiffel library class \e{LIST}, for example, offers a routine \e{do_all} that takes an agent passed as argument and applies it to every element of the list.
+Reasoning about \e{do_all} requires to distinguish between when the agent is applied to different elements of the list; the simple convention of \e{modify} clauses, however, does not offer this level of granularity.
+In our technical report~\cite{NordioCalcagnoMeyerMueller08c}, we suggest a mechanism to express such non-interference properties; its implementation in \AutoProof is part of future work.

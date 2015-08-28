@@ -1,0 +1,108 @@
+%============================================================================
+\section{Correctness Scores for \EVE}\label{sec:va:scores}
+%============================================================================
+
+Equation~\ref{eq:routine} on page~\pageref{eq:routine} gives the correctness score for a routine $r$ of class $C$; now, consider a set of tools $T =\{p, t, e\}$, where $p$ denotes \AutoProof, $t$ denotes \AutoTest, and $e$ denotes \Inspector.
+
+
+
+\subsection{General principles for scores}
+
+We noted earlier that an interesting test, that is to say a failed test, is a proof of incorrectness. This is of course another form of Dijkstra's famous observation about testing---but restated as an argument \emph{for} tests rather than a criticism of the notion of testing. 
+This observation has two direct consequences on the principles for computing correctness scores.
+
+First, it is relatively straightforward to assign scores to the result of a testing tool when it reports errors: assign a score of $-1$, denoting certain incorrectness, to every routine where testing found an error.
+In certain special circumstances, the score might be differentiated according to the severity of the fault; for example a bug that occurs only if the program runs for several hours may be less critical than one that occurs earlier, if the system is such that it is reset every 45 minutes.
+In most circumstances, however, it is better to include such domain information in the specification itself and to treat every reported fault as a routine error.
+Then, different routines may still receive a different weight in the computation of the score of a class (Equation~\ref{eq:class} on page~\pageref{eq:class})---for example, a higher weight to public routines with many clients.
+
+The second consequence is that it is harder to assign a positive score sensibly to routines passing tests without errors.
+It is customary to assume that many successful tests increase the confidence of correctness; hence, this could determine a positive correctness score, which increases with the number of tests passed, the diversity of input values selected, or the coverage achieved according to some coverage
+criteria such as branch or instruction coverage.
+In any case, the positive score should be normalized so that it never exceeds an upper limit strictly less than $1$, which denotes certain correctness
+and is hence unattainable by testing.
+
+For verification tools that are sound, a successful proof should generally give a score of $1$.
+Certain aspects of the runtime behavior, such as arithmetic and memory overflows as discussed above, may still leak in some unsoundness if the static verifier does not model them explicitly; in such cases the score for a successful proof may be scaled down in routines with a specification that depends on such aspects.
+
+Which score to assign to a static verifier reporting a failed proof attempt depends on the technique's associated guarantee of \emph{completeness}.
+For a complete tool, a failed proof denotes a certain fault, hence a score of $-1$.
+If the tool is incomplete, a failed proof simply means ``I don't know''; whether and how this should affect the score depends on the details of the technique.
+For example, partial proofs may still increase the evidence for correctness and yield a positive score.
+
+
+\subsection{Score and weight for \AutoTest}
+
+If \AutoTest reports a fault in a routine $r$ of class $C$, the correctness score $s_r^C(t)$ becomes $-1$.  This score receives a high weight $w_r^C(t) = 100$ by default; the user can adjust this value to reflect specific knowledge about the criticality of certain routines over others with respect to testing.
+
+When \AutoTest tests a routine $r$ of class $C$ without uncovering any fault, the score $s_r^C(t)$ increases proportionally to the length of
+the testing session and the number of test cases executed, but with an upper limit of $0.9$.
+With the default settings, this maximum is reached after 24 hours of testing and $10^4$ test cases executed without revealing any error in $r$.
+Users can change these parameters; the default settings try to reflect the specificities of random testing shown in repeated experiments~\cite{WEI12}. 
+We decided against using specific coverage criteria such as branch coverage in the calculation of the routine score, as the experiments suggest that for example the correlation between branch coverage and the number of uncovered faults is weak.
+
+
+
+\subsection{Score and weight for \AutoProof}
+
+\AutoProof implements a sound but incomplete proof technique.
+The score $s_r^C(p)$ for a routine $r$ of class $C$ is set accordingly:
+\begin{itemize}
+	\item 
+     a successful proof yields a score of $1$;
+	\item
+     an out-of-memory error or a timeout are inconclusive and yield a $0$;
+	\item
+     a failed proof with abstract trace may be a faint indication of
+     incorrectness: the abstract trace may not correspond to any
+     concrete trace (showing an actual fault), but it often suggests
+     that a proof might be possible with more accurate assertions.
+     The score is then $-0.3$ to reflect this heuristic
+     observation.
+\end{itemize}
+
+The weight $w_r^C(p)$ takes into account the few language features that are currently unsupported: if $r$'s body contains a feature that is not supported (e.g. exceptions), $w_r^C(p)$ is conservatively set to zero, if $r$'s body contains a feature that is partially supported (e.g. floating point arithmetic), $w_r^C(p)$ is set to a value between $0$ and $1$.
+In all other cases, $w_r^C(p)$ is $1$ by default.
+
+
+\subsection{Score and weight for \Inspector}
+
+The \Inspector, unlike \AutoTest and \AutoProof, does not focus on functional correctness. It has only very few rules that reveal a definite coding error and most of the rules indicate bad code quality or even just adherence to coding guidelines.
+While rule violations in general indicate bad code quality they lend only little evidence for incorrectness and the absence of rule violations has no value for correctness at all.
+We account for that by setting the score $s_r^C(e)$ and weight $w_r^C(e)$ accordingly.
+
+The score given by \Inspector reflects the kind of rules violated. Each rule is categorized as either a \emph{hint}, a \emph{warning} or an \emph{error}. We ignore the hint category entirely, as this is only indicative of coding style. If \Inspector finds a violation of an error rule the score is set to $-1$ and if only warning rules are violated we give a negative score up to a maximum of $-0.3$ depending on the number of rule violations to reflect the intuition that complex code has a higher probability of errors. The increase to the negative score is linear in the number of rule violations found and capped at the maximum value of $-0.3$.
+
+The weight also depends on the type of the violated rules.
+We set the weight to $100$ if one of the few error rules is violated, similar to the case where \AutoTest finds an error in the program.
+When only warning rules are violated we set the weight to $1$ and when no rules are violated the weight becomes $0$.
+Therefore, the \Inspector does not contribute to the overall score if it does not find any rule violations.
+
+\subsection{Routine weights}
+
+Equation~\ref{eq:class} (page~\pageref{eq:class}) combines the scores $s_r^C$ of every routine $r$ of class $C$ with weights $w_r^C$ to determine the cumulative score of $C$.
+The weights $w_r^C$ should quantify the relevance of routine $r$ for the correctness of class $C$.
+Different metrics could be used to automatically infer the importance of a routine:
+\begin{itemize}
+\item
+Routines usable by other classes might have a higher impact on the perceived correctness of a class.
+
+\item
+Routines with higher complexity can be considered more important. A high complexity indicates that the routine is performing an important operation, therefore its correctness should be more important for the correctness of the class.
+
+\item
+Faults in a routine with many clients have potentially higher impact. When a routine has many clients, its importance could be increased accordingly.
+
+\item
+Using run-time profiling information, the relative time spent executing a routine or the relative number of calls to a routine could be used to weigh the importance of routines. The higher such numbers---execution time or calls to a routine---the higher the importance of a routine.
+
+\end{itemize}
+
+Despite the possibility to infer the routine importance automatically, it is the developer who has a better understanding of the overall system design and can decide best which routines are more important.
+
+\EVE supports a simple way give developers control over the importance setting of routines: every routine has an optional \emph{importance} flag which takes the values \emph{low}, \emph{normal} (the default), and \emph{high}.
+$w_r^C$ is then $$w_r^C \ =\ v_r^C \cdot i_r^C$$
+The visibility of $r$ determines $v_r^C$, which is $2$ if $r$ is public and $1$ otherwise.
+The importance of $r$ determines $i_r^C$, which is $2$ if $r$ has high importance, $1$ if it has normal importance, and $1/2$ if it has low importance.
+
+

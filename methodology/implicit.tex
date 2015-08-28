@@ -1,0 +1,70 @@
+%############################################################################
+\section{Implicit Contracts}
+\label{sec:m-implicit}
+%############################################################################
+
+
+\emph{Implicit contracts} are simple specification elements that are implicit in the semantics of the programming language---Eiffel in our examples.
+Since they are implicit, programmers tend to reason informally about the program without writing them down as assertions.
+This limits the kinds of properties that can be proved automatically with a static verifier.
+With implicit contracts, the verifier transparently annotates the program under verification so that the feedback to users is more accurate and goes deeper than what would have been possible based on the explicitly written contract only.
+We currently support the following classes of implicit contracts.
+
+
+%============================================================================
+\subsection{Targets Non-Void}
+%============================================================================
+
+A qualified call \e{$t.r_1(a_1).\ldots.r_n(a_n)$}, with $n \geq 0$, is non-Void if \e{t /= Void} and, for $1 \leq k < n$, \e{$t.r_1(a_1).\ldots.r_k(a_k)$} returns a non-Void reference.
+For every such qualified call appearing as instructions or in expressions, we introduce the corresponding implicit contract that asserts that the call is non-Void.
+
+For example, \e{two_way_sort}'s precondition (Figure~\ref{ex:twowaysort}) is augmented with the implicit contract that \e{a /= Void} following from the qualified call \e{a.count}.
+
+%============================================================================
+\subsection{Routine Calls in Contracts}
+%============================================================================
+
+In programming languages supporting contracts there need not be a sharp distinction between functions used in the implementation and functions used in the specification.
+Routine \e{two_way_sort}, for example, uses the function call \e{a.count}---returning the length of array \e{a}---in its precondition and loop invariant, but also in the assignment instruction on line~\ref{l:init}.
+Functions used in contracts may have preconditions too; programmers should make them explicit by replicating them whenever the function is mentioned, but they often neglect doing so because it is something that is implicit when those functions are used in normal instructions, whereas it is not checked when the same functions are used in contracts.
+
+Consider, for instance, a function \e{is_sorted} with the obvious semantics, and suppose that its precondition requires that it is applied to non-empty lists.
+If \e{is_sorted} is called anywhere in the implementation, then it is the caller's responsibility to establish its precondition; the caller is aware of the obligation explicit in \e{is_sorted}'s contract.
+But if \e{is_sorted} is called, say, as precondition of \e{binary_search}, establishing \e{is_sorted}'s precondition is now the responsibility of callers to \e{binary_search}, who are, however, unaware of the non-emptiness requirement \emph{implicit} in \e{binary_search}'s precondition.
+In fact, the requirement should explicitly feature as one of \e{binary_search}'s preconditions.
+
+To handle such scenarios automatically, for every call to any function \e{f} appearing in contracts, we introduce the corresponding implicit contract that asserts that \e{f}'s precondition holds right before \e{f} is evaluated in the contract.
+If \e{f}'s precondition includes calls to other functions, we follow the transitive closure of the preconditions, also checking well-formedness (that is, no circularity occurs).
+
+
+
+
+%============================================================================
+\subsection{Arithmetic Expressions}
+%============================================================================
+
+The subexpressions $\sub(e)$ of an integer expression $e$ are defined in the obvious way: if $e$ is an integer constant or an integer variable then $\sub(e) = \{e\}$; if $e$ is the application of a unary operator $\sim$, that is $e =\:\sim\!\!d$, then $\sub(e) = \{e\} \cup \sub(d)$; if $e$ is the application of a binary operator $\oplus$, that is $e = c \oplus d$, then $\sub(e) = \{e\} \cup \sub(c) \cup \sub(d)$.
+For every integer expression $e$ appearing in instructions or expressions, we introduce the implicit contract that asserts that no subexpression of $e$'s may overflow:
+\[
+\bigwedge_{x \in \sub(e)} \text{\e{\{INTEGER\}.min_value <=$\,$ x $\quad$and$\quad$ x <= \{INTEGER\}.max_value}}
+\]
+For every subexpression of the form $c \oslash d$, where $\oslash$ is some form of integer division, we also introduce the implicit contract \e{d /= 0}, which forbids division by zero.
+
+The integer expression at line~\ref{l:midpoint} in Figure~\ref{ex:binarysearch}, for example, determines the implicit contract \e{1 + a.count <= \{INTEGER\}.max_value}, which may not hold.
+
+
+%============================================================================
+\subsection{Related Work}
+%============================================================================
+
+Auto-active verification relies on accurate specifications, which are not easy to write and get right.
+One way to ameliorate this situation is inferring specifications automatically using static~\cite{CHANG05,KOVACS09,FURIA10} or dynamic~\cite{ERNST01,WEI11,WASYLKOVSKI11} techniques.
+Specifications dynamically inferred are based on a finite number of executions, and hence may be unsound; this makes them unsuitable for use in the context of static verification.
+Static techniques can infer sound specifications from the program text; these are useful to document existing implementations, to discover auxiliary assertions (such as loop invariants), or for comparison with specifications independently written, but proving an implementation correct against a specification inferred from it is mostly a vacuous exercise.
+
+The simple implicit contracts that we use in our approach express well-formedness properties of the input program, which are tacitly assumed by programmers reasoning informally about it; therefore, there is no risk of circularity.
+Some static verifiers use mathematical integers or assume purity of specification functions to have well-formedness by construction; a risk is that, when they are applied to real programming languages, the corresponding semantic gap may leave some errors go unnoticed.
+ESC/Java2~\cite{COK05}, for example, does not check for overflows~\cite{KINIRY06}, nor if specification expressions are executable (for example, null-dereferencing could happen when evaluating a precondition).
+The Dafny verifier~\cite{LEINO10} checks well-formedness of pre- and postconditions, and may consequently require users to add explicit contracts to satisfy well-formedness. Our implicit contracts are instead added and checked automatically, without requiring users to explicitly write them.
+In this sense, they are similar to approaches such as VCC~\cite{COHEN09}, which models the semantics of the C programming language as precisely as possible.
+

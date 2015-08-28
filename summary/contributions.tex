@@ -1,0 +1,47 @@
+%############################################################################
+\subsection{Overview of Contributions}
+%############################################################################
+
+This thesis makes the following contributions:
+
+%----------------------------------------------------------------------------
+\subsubsection{Design of an integrated verification environment~\cite{TSCHANNEN11}}
+%----------------------------------------------------------------------------
+
+We have developed an approach to integrate verification tools in an IDE, resulting in an \emph{integrated verification environment}.
+The high-level approach produces correctness scores for each routine and class, based on a combination of correctness scores of individual tools, confidence in the tool's results, and other factors such as importance of routines.
+We have implemented this method in the \VAssist as part of the Eiffel Verification Environment.
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Auto-active verification of Eiffel~\cite{TSCHANNEN15,TSCHANNEN14}}
+%----------------------------------------------------------------------------
+
+We have developed \AutoProof, an auto-active verifier for Eiffel.
+The verifier covers a large part of the Eiffel language and can be used to verify challenging problems by supporting semantic collaboration~\cite{POLIKARPOVA14} and verification of function objects~\cite{NORDIO10}.
+\AutoProof has been used to verify a general-purpose container library~\cite{POLIKARPOVA15}, verify client code of said library, as well as for teaching in a verification course~\cite{FURIA15}.
+We discuss in-depth how \AutoProof verifies challenging examples and provide an online repository of examples verified with \AutoProof.
+\AutoProof is integrated in the Eiffel Verification Environment and available through a web interface.
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Methodologies for auto-active verification~\cite{TSCHANNEN13,TSCHANNEN12}}
+%----------------------------------------------------------------------------
+
+We introduce, implement, and evaluate on realistic examples several general methodologies usable by auto-active verifiers.
+
+\begin{itemize}
+\item
+\emph{Two-step verification}, a technique to improve the feedback of failed verifications by doing a second verification step that uses inlining and unrolling.
+
+\item
+A methodology to use contracts of the dynamic type whenever the verifier can infer the dynamic type at a program location.
+
+\item
+A methodology to annotate and verify Eiffel code that uses exceptions.
+
+\end{itemize}
+
+
+
+

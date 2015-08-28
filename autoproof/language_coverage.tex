@@ -1,0 +1,69 @@
+%############################################################################
+\section{Input Language Support}
+\label{sec:ap-coverage}
+%############################################################################
+
+
+\AutoProof supports most of the Eiffel language as used in practice, obviously including Eiffel's native notation for contracts (specification elements) such as pre- and postconditions, class invariants, loop invariants and variants, and inlined assertions such as \e{check} (\b{assert} in other languages).
+Object-oriented features---classes and types, multiple inheritance, polymorphism---are fully supported, and so are imperative and procedural constructs.
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Partially supported and unsupported features}
+%----------------------------------------------------------------------------
+
+A few language features that \AutoProof does not currently fully support have a semantics that violates well-formedness conditions required for verification: 
+AutoProof doesn't support specification expressions with side effects (for example, a precondition that creates an object). These are common practices in verification and recommended also in Eiffel, although programs in practice may include specification functions with side effects.
+It also doesn't support the semantics of \e{once} routines (similar to \lstinline[language=Java]|static| in Java and C\#), which would require global reasoning thus breaking modularity.
+
+Other partially supported features originate in the distinction between machine and mathematical representation of types.
+Among primitive types, machine \e{INTEGER}s are fully supported (including overflows); floating-point \e{REAL}s are modeled as infinite-precision mathematical reals; strings are supported with a limited set of operations and without UTF support.
+Array and list library containers with simplified interfaces are supported out of the box.
+Other container types require custom specification.
+Agents (function objects) are partially supported, with restrictions in their specifications.
+The semantics of native \e{external} methods (no source code is available) is reduced to their specification.
+We designed a translation for exceptions based on the latest draft of the Eiffel language standard (see Section~\ref{sec:m-exceptions}), but \AutoProof doesn't support it yet since the Eiffel compiler still only implements the former syntax for exceptions (and exceptions have very limited usage in Eiffel anyway).
+
+The \AutoProof manual (Appendix~\ref{manual:lang-support}) has an overview of the level of support for all Eiffel language features.
+
+%----------------------------------------------------------------------------
+\subsubsection{Annotations for verification}
+%----------------------------------------------------------------------------
+
+Supporting effective auto-active verification requires much more than translating the input language and specification into verification conditions.
+\AutoProof's verification methodology relies on annotations that are not part of the Eiffel language.
+Users provide them by writing two kinds of constructs.
+Annotations that are part of assertions or other specification elements use predefined dummy features with empty implementation, which \AutoProof interprets according to their semantics.
+Annotations of this kind include \emph{modify} and \emph{read} clauses (specifying objects whose state may be modified or read by a routine's body).
+For instance, a clause \e{modify (set)} in a routine's precondition denotes that executing the routine may modify objects in \e{set}.
+
+Annotations that apply to whole classes or features are expressed by means of Eiffel's \e{note} clauses, which attach additional information that is ignored by the Eiffel compiler but is processed by \AutoProof.
+Annotations of this kind include defining class members as \emph{ghost} (only used in specifications), procedures as \emph{lemmas} (outlining a proof using assertions and ghost-state manipulation), and which members of a class define its abstract \emph{model} (to be referred to in interface specifications).
+For example \e{note status: ghost} tags as ghost the member it is attached to.
+A complete list of supported annotations is available in the \AutoProof manual (Appendix~\ref{manual:annotations}).
+
+A distinctive trait of semantic collaboration, as available to \AutoProof users, is the combination of flexible expressive annotations with useful defaults.
+Expressivity offers fine-grained control over the visibility of specification elements (for example, invariant clauses can be referenced individually); defaults reduce the amount of required manual annotations in many practical cases; the combination of the two is instrumental in making \AutoProof usable on complex examples of realistic object-oriented programs.
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Verifier's options}
+%----------------------------------------------------------------------------
+
+\AutoProof \emph{verification options} are also expressed by means of \e{note} clauses: users can disable generating boilerplate implicit contracts, skip verification of a specific class, 
+disable termination checking (only verify partial correctness), and define a custom mapping of a class's type to a Boogie theory file.
+See \AutoProof's manual (Appendix~\ref{manual:options}) for a complete list of features and options, and examples of usage.
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Specification library}
+%----------------------------------------------------------------------------
+
+To support writing complex specifications, \AutoProof provides a library---called MML for Mathematical Model Library---of pre-defined abstract types.
+These include mathematical structures such as sets, relations, sequences, bags (multisets), and maps.
+The MML annotation style follows the model-based paradigm~\cite{POLIKARPOVA10}, which helps write abstract and concise, yet expressive, specifications.
+MML's features are fully integrated in \AutoProof by means of effective mappings to Boogie background theories.
+A distinctive advantage of providing mathematical types as an annotated library is that MML is \emph{extensible}: users can easily provide additional abstractions by writing annotated Eiffel classes and by linking them to background theories using custom \e{note} annotations---in the very same way existing MML classes are defined.
+This is not possible in most other auto-active verifiers, where mathematical types for specification are built into the language syntax.
+
+

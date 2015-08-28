@@ -1,0 +1,164 @@
+%############################################################################
+\chapter{Conclusions and Future Work}
+\label{sec:concl_fut}
+\chapterimage{images/conclusions}
+%############################################################################
+
+%============================================================================
+\section{Conclusions}
+\label{sec:conclusions}
+%============================================================================
+
+This thesis presented work in the area of automated software verification with a focus on usability and tool support.
+
+To combine verification tools in an IDE we have developed a scoring system to aggregate results in a single interface.
+The system works by having each tool assign a score for each routine and provide a confidence in the soundness of its own result.
+A single routine score computed based on the results and confidence of each tool.
+To create a class score, routine scores are combined based on a routine's importance.
+The developer can investigate the correctness of the system at different granularity levels: per class, per feature, and per tool result.
+A prototype of this system---the \VAssist---has been implemented as part of \EVE combining the output of three diverse tools: \AutoProof, \AutoTest, and \Inspector.
+The implementation shows that integration on this abstraction level facilitates the addition of new tools in the system.
+
+With \AutoProof we have developed a state-of-the-art auto-active verifier for a real complex object-oriented language.
+\AutoProof supports a powerful methodology for framing and class invariants which make it applicable in practice to idiomatic object-oriented patterns.
+In addition, \AutoProof supports a methodology to deal with function objects (agents) and polymorphism.
+Integrating two-step verification, implicit contracts, inlining, and unrolling, \AutoProof tries to cater not just to the verification experts but also be accessible for novices.
+We have evaluated \AutoProof on a rich collection of benchmark problems, all of which are available in an online repository, with a specific focus on verification challenges and object-oriented patterns.
+\AutoProof has also been used to verify full functional correctness of a general-purpose container library.
+The results attest \AutoProof's competitiveness among tools in its league on cutting-edge functional verification of object-oriented programs.
+We have given an in-depth description of several solutions to verification challenges, highlighting various aspects of using \AutoProof in practice.
+It is possible to use \AutoProof for these challenges, although inside knowledge of the back-end verifier is necessary sometimes for a successful verification.
+
+The work on \AutoProof has gone on over several years.
+The prototype version was created as a proof-of-concept and used an inflexible design that was difficult to extend.
+To ease further development, a new version of \AutoProof was built with usability and extensibility in mind.
+The implementation uses clear abstractions and exhibits a solid object-oriented design; \AutoProof offers extension points to integrate new translation from Eiffel to Boogie, as well as facilities to translate Eiffel directly to custom Boogie code.
+This allows to build Eiffel libraries with custom Boogie axiomatizations without the need of modifying \AutoProof.
+We provide various interfaces for using \AutoProof through a graphical user interface, command-line interface, and online and embedded in websites.
+
+We have developed two-step verification, a technique for improving the feedback of automated verifiers. Two-step verification does a second verification attempt for each failed verification whilst inlining routine calls and unrolling loops. By combining the outcome of both verification attempts the verifier can improve the error reporting in cases where the implementation of the verified routine is correct and the specification has to be adapted. The evaluation of two-step verification has shown that for small to moderate examples the overhead is manageable.
+
+To support the Eiffel programming language more fully, we have proposed methodologies for handling polymorphic calls and the exception mechanism of Eiffel. Our methodology for polymorphism takes advantage of redefined contracts whenever the dynamic type of a dynamically bound reference can be inferred from the context. This is achieved by using uninterpreted functions representing pre- and postconditions that are linked to the concrete specifications of a routine based on the dynamic type. We have presented a translation of Eiffel's peculiar exception mechanism to Boogie. Routines that trigger exceptions need an additional postcondition to specify the routine's effect in case of an exception and, since the exception mechanism introduces an implicit loop, a rescue invariant is necessary to reason about the exceptional case.
+
+
+
+%============================================================================
+\section{Future Work}
+\label{sec:futurework}
+%============================================================================
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Integrating suggestion tools}
+%----------------------------------------------------------------------------
+
+Our tool integration in \EVE has been limited to verification and analysis tools. Another category of tools that developers benefit from are \emph{contract inference tools} and \emph{fixing tools} such as Daikon~\cite{ERNST07} or \AutoFix~\cite{PEI11,PEI14}. Although these tools cannot be integrated directly with the scoring system implemented in the \VAssist, the information collected from the verification tools can be used to target inference and fixing tools to the areas of a program that most benefit from their work. The static verification tools are indicative of the level of specifications of a program element. If static verification fails while testing succeeds, contract inference could be used to improve the available specifications to help the static verifiers. When testing fails as well, fixing tools can try to remove the found bugs. Also, verification tools can be used to validate suggestions. Specifications and fixes generated by suggestion tools can be validated by the verification tools.
+
+The workflow of the tool interactions could therefore be as follows:
+\begin{itemize}
+\item
+A program element is verified statically. If the verification is successful, additional verifications are only run if the tool's confidence is not 100\% (which indicates unsoundness). If the verification fails, other verification tools are run; in addition, contract inference tools are used on the program elements involved to possibly improve the existing specification.
+
+\item
+A program element is verified dynamically. If the verification is successful, we run additional verification tools only if the score is not yet high enough.
+If the verification fails a bug was uncovered; fixing tools are used to come up with an automatic fix for the bug.
+
+\end{itemize}
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Language design for verification}
+%----------------------------------------------------------------------------
+
+\begin{efigure}[!ht]{Adding additional semantics to specifications.}{fig:langforverification}
+remove
+	require -- regular precondition
+		not is_empty
+	require ("AutoProof") -- precondition only for AutoProof
+		modify_model (Current.sequence)
+	do ...
+	ensure -- regular postcondition
+		count = old count - 1
+	ensure ("ghost") -- non-executable specification
+		sequence = old sequence.but_first
+	end
+\end{efigure}
+
+Our work on supporting verification of a full object-oriented programming language like Eiffel has taught us that specification based on regular executable code is not sufficient.
+For the verification of complex properties the language needs support for additional annotations such as framing or termination, but also ghost code with an expressiveness rivaling or even surpassing regular code seems indispensable~\cite{FILLIATRE14}.
+A flexible language extension that supports the design and implementation of advanced verification tools natively would be desirable.
+One approach in this direction would be to split specifications into multiple categories, as indicated in Figure~\ref{fig:langforverification}.
+The different types of specifications could add additional semantics to the specifications:
+\begin{itemize}
+\item Separate specifications that are executable or non-executable.
+\item Highlight specifications that carry addition language semantics such as waiting-conditions in SCOOP programs.
+\item Mark specifications that are entirely tool-specific.
+\end{itemize}
+An additional challenge in this work is to guarantee consistency of specifications of different categories.
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Verification of concurrent programs}
+%----------------------------------------------------------------------------
+
+\AutoProof only targets sequential programs. The ever growing importance of concurrent programming makes it worthwhile to investigate extending \AutoProof to concurrent programs. Eiffel has adopted the SCOOP concurrency model~\cite{MEYER97,NIENALTOWSKI07}, which is therefore a natural target for \AutoProof.
+Since SCOOP has clearly specified locking based on \e{separate} arguments and synchronization points based on feature calls on separate entities, execution of individual routines can be handled using the sequential model of Eiffel.
+
+\begin{efigure}[!ht]{Extract from producer-consumer pattern in SCOOP.}{fig:fw:scoop}
+store (a_buffer: separate BUFFER [INTEGER]; an_element: INTEGER)
+	require
+		not a_buffer.is_full
+	do
+		a_buffer.put (an_element)
+	ensure
+		not a_buffer.is_empty
+		a_buffer.count = old a_buffer.count + 1
+	end
+\end{efigure}
+
+Consider as an example the code in Figure~\ref{fig:fw:scoop}, an extract from the producer-consumer pattern written in SCOOP.
+SCOOP guarantees that the separate argument is locked during the execution of the routine, the execution of this isolated routine is therefore equivalent to a sequential execution.
+
+Interesting situations arise in collaborative structures, where one does not always hold a lock on another object, but requires certain properties to hold.
+The greatest challenge then is to combine the SCOOP model with semantic collaboration~\cite{POLIKARPOVA14} ensuring that the guarantees provided by the framing model are retained.
+
+
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Supporting more domain theories}
+%----------------------------------------------------------------------------
+
+Given \AutoProof's goal of targeting a real programming language, there are few domain-specific features of the Eiffel language that are not fully supported but are used in practice in a variety of programs: reasoning in \AutoProof about strings and floating-point numbers is limited by the imprecision of the verification models of such features.
+Although strings can be modeled in \AutoProof based on the underlying data structure, this approach requires a larger effort of the back-end verifier.
+A more efficient is possible by bypassing this indirection and use \AutoProof's translation capabilities to directly map some language elements to Boogie.
+
+\begin{efigure}[!ht]{Specifications involving strings.}{fig:fw:strings}
+set_name (n: STRING)
+	require
+		two_letters_minimum: n.sequence.count >= 2
+	do
+		name := n
+	ensure
+		name.sequence = n.sequence
+	end
+\end{efigure}
+
+Currently, programs that use strings require developers to write specifications involving the string's model query as shown in Figure~\ref{fig:fw:strings}.
+This is not just a burden on the developer, also the verifier uses an indirection by modeling the string as an object containing an array of characters.
+By adding a direct translation for strings in \AutoProof, Eiffel strings could be mapped directly to a Boogie array, removing the need to write specifications over model queries while simultaneously making the verification easier for the verifier.
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Debugging of failed verifications}
+%----------------------------------------------------------------------------
+
+When a program fails, developers have debuggers available that allow to inspect the state of the program at the point and the time of the fault.
+The feedback of a failed verification with \AutoProof is currently a single message indicating which assertion could not be verified.
+To remedy this situation, \AutoProof could integrate with the Boogie verification debugger~\cite{GOUES11}.
+For the integration, the generated Boogie code needs to be instrumented with special commands.
+Boogie then capture the state of the internal model at these locations.
+An additional translation step is necessary to map the Boogie model to variables in the Eiffel program, so the \AutoProof output needs to be augmented with additional trace annotations for each generated Boogie variable.
+A graphical user interface can then be developed that visualizes the verifiers' model and gives users a detailed view of the state of the values the verifier has instantiated at each program location.
+
+

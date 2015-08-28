@@ -1,0 +1,86 @@
+%============================================================================
+\section{Usage Scenarios}
+%============================================================================
+
+
+How serviceable is \EVE's score which combines the results of different verification tools, as opposed to considering the tools' outputs individually?
+This section outlines a few straightforward scenarios that compare the output given by \AutoProof or \AutoTest in isolation against \EVE's combined output; they show the greater confidence supplied by \EVE, and the straightforward interpretability of its output.
+%
+The example models attributes of an individual with a class \e{PERSON}. Table~\ref{table:person_results} lists 8 routines of the class to be verified; for each routine, the table reports the score and weight of \AutoProof and \AutoTest within \EVE, and the corresponding combined score.
+
+\begin{table}[!htb]
+\centering
+\scriptsize
+\begin{tabular}{l l l r r}
+
+  \textbf{Item} & \textbf{Tool} & \textbf{Result} & \ \textbf{Weight} & \ \textbf{Score} \\ \hline
+  
+  \e{set_age}
+     & \AutoProof & Verified successfully & 1.0 & 1.00 \\
+     & \AutoTest & No errors found & 1.0 & 0.90 \\
+     & \Inspector & No violations found & 0.0 & 0.00 \\
+     &  \textbf{Routine score} & & & \textbf{0.95} \\ \hline
+  \e{set_weight}
+     & \AutoProof & Verified successfully & 1.0 & 1.00 \\
+     & \AutoTest & No errors found & 1.0 & 0.90 \\
+     & \Inspector & No violations found & 0.0 & 0.00 \\
+     &  \textbf{Routine score} & & & \textbf{0.95} \\ \hline
+  \e{set_height}
+     & \AutoProof & Postcondition violation & 1.0 & -0.30 \\
+     & \AutoTest & Postcondition violation & 100.0 & -1.00 \\
+     & \Inspector & Error: self-assignment & 100.0 & -1.00 \\
+     &  \textbf{Routine score} & & & \textbf{-1.00} \\ \hline
+  \e{set_name}
+     & \AutoProof & Proof failed & 0.5 & -0.30 \\
+     & \AutoTest & No errors found & 1.0 & 0.90 \\
+     & \Inspector & No violations found & 0.0 & 0.00 \\
+     &  \textbf{Routine score} & & & \textbf{0.50} \\ \hline
+  \e{increase_age}
+     & \AutoProof & Verified successfully & 0.5 & 1.00 \\
+     & \AutoTest & Overflow detected & 100.0 & -1.00 \\
+     & \Inspector & No violations found & 0.0 & 0.00 \\
+     &  \textbf{Routine score} & & & \textbf{-0.99} \\ \hline
+  \e{age_difference}
+     & \AutoProof & Verified successfully & 0.5 & 1.00 \\
+     & \AutoTest & No errors found & 1.0 & 0.90 \\
+     & \Inspector & Warning: local not read & 1.0 & -0.10 \\
+     &  \textbf{Routine score} & & & \textbf{0.60} \\ \hline
+  \e{print_id_card}
+     & \AutoProof & Inapplicable & 0.0 & 0.00 \\
+     & \AutoTest & No errors found & 1.0 & 0.90 \\
+     & \Inspector & No violations found & 0.0 & 0.00 \\
+     &  \textbf{Routine score} & & & \textbf{0.90} \\ \hline
+  \e{apply_command}
+     & \AutoProof & Verified successfully & 1.0 & 1.00 \\
+     & \AutoTest & Inapplicable & 0.0 & 0.00 \\
+     & \Inspector & No violations found & 0.0 & 0.00 \\
+     &  \textbf{Routine score} & & & \textbf{1.00} \\ \hline
+  \e{PERSON}
+     & \textbf{Class score} & & & \textbf{0.41} \\ \hline
+     \\
+\end{tabular}
+\caption{Individual and combined results for class \e{PERSON}.}
+\label{table:person_results}
+\end{table}
+
+Routines \e{set_age} and \e{set_weight} demonstrate a favorable scenario, where \AutoProof and \AutoTest can provide strong positive evidence indicating correctness and \Inspector finds no rule violations. The overall score is, correspondingly, quite high, but it still falls short of the maximum because testing can never prove the absence of errors with 100\% confidence. 
+
+Routine \e{set_height} shows the opposite scenario, where all three tools report a failure. The routine has an incorrect implementation which triggers one of the few \emph{error} rules of \Inspector. \AutoProof and \AutoTest both report a postcondition violation.
+The two tools \AutoTest and \Inspector have very high confidence when they find errors, thus they both use a very high weight.
+
+Routine \e{set_name} relies on the object comparison semantics, which \AutoProof overapproximates. 
+In this case, a failed proof does not necessarily indicate an error in the routine, hence it only accounts for a mildly negative score.
+When \AutoTest does not find any error after thorough testing, the combined score becomes visibly positive, while still leaving a margin of uncertainty given the lack of conclusive evidence either way.
+
+Routine \e{increase_age} includes integer arithmetic, which might produce overflow. 
+\AutoProof can verify the routine, but \EVE is aware that overflow checking is disabled and the proof scheme models integers as mathematical integers, hence it weights down the value of the successful proof because the abstraction may overlook overflow errors.
+Indeed, \AutoTest reveals an overflow when executing the routine with the maximum integer value. 
+The combined score indicates that there is an error, which \AutoTest discovered beyond the limitations of \AutoProof. 
+Another routine \e{age_difference} also uses integer arithmetic but it is correct.
+\EVE still scales down \AutoProof's score accordingly; in this case, however, \AutoTest does not find any error, hence the overall score grows high: the uncertainties of the two tools compensate each other and the cumulative score indicates confidence.
+Additionally, \Inspector reports a warning for this routine due to some leftover debugging code which slightly reduces the overall score of the routine.
+
+Routines \e{print_id_card} and \e{apply_command} demonstrate how \EVE's combination of tools expands the applicability of verification: \e{print_id_card} uses string manipulations and console output, unsupported by \AutoProof, whereas \e{apply_command} uses agents, unsupported by \AutoTest. \EVE relies entirely on the only applicable tool in each case.
+
+
+The overall class score (last line of Table~\ref{table:person_results}) uses a uniform weight for the routines; the score concisely indicates that considerable effort has been successfully invested in the class's verification, but some non-trivial issues are open. 

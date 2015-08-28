@@ -1,0 +1,501 @@
+%############################################################################
+\section{\VSRepo}
+\label{sec:eval-repo}
+%############################################################################
+
+To demonstrate \AutoProof's competitiveness, we have evaluated \AutoProof on a suite of benchmark problems. We only give capsule descriptions of the problems here; the complete solutions are available online through \AutoProof's web interface:
+\begin{center}
+\url{http://se.inf.ethz.ch/research/autoproof/repo} 
+\end{center}
+
+%============================================================================
+\subsection{Benchmarks Description} \label{sec:problems}
+%============================================================================
+
+Our selection of problems is largely based on the verification challenges put forward during several scientific forums, namely the SAVCBS workshops~\cite{SAVCBS}, and various verification competitions~\cite{KLEBANOV11,BORMER11,FILLIATRE12,HUISMAN12} and benchmarks~\cite{VSI08}.
+
+\autoref{tab:Problems} presents a short description of verified problems. % to verify and their source.
+For complete descriptions see the references (and \cite{POLIKARPOVA14} for solutions to problems \ref{p:iterator}--\ref{p:pip}).
+The table is partitioned in three groups: the first group (\ref{p:arith}--\ref{p:sorting}) includes mainly \emph{algorithmic} problems; the second group (\ref{p:iterator}--\ref{p:pip}) includes object-oriented design challenges that require complex \emph{invariant} and \emph{framing} methodologies; the third group (\ref{p:closures}--\ref{p:game2}) targets \emph{data-structure} related problems that combine algorithmic and invariant-based reasoning.
+The second and third group include cutting-edge challenges of reasoning about functional properties of objects in the heap; for example, \nref{p:pip} describes a data structure whose node invariants depend on objects not accessible in the physical heap.
+
+
+\begin{sidewaystable}
+\begin{footnotesize}
+
+\begin{tabular}{rl l r}
+\textsc{\#} & \textsc{name} &  \textsc{description} 
+ & \textsc{from}  \\
+\hline
+
+
+\rownumber \namelabel{p:arith}{\textsc{arith}} &
+Arithmetic (\nref{p:arith}) 
+&
+Build arithmetic operations based on the increment operation.
+&
+\cite{VSI08}	 
+\\
+
+\rownumber \namelabel{p:binsearch}{\textsc{bins}} &
+Binary search (\nref{p:binsearch}) 
+&
+Binary search on a sorted array (iterative and recursive version).
+&
+\cite{VSI08}	
+\\
+
+\rownumber \namelabel{p:sum-max}{\textsc{s\&m}} &
+Sum \& max (\nref{p:sum-max}) &
+Sum and maximum of an integer array.
+&
+\cite{KLEBANOV11}	
+\\
+
+\rownumber \namelabel{p:search-list}{\textsc{search}} &
+Search a list (\nref{p:search-list})
+&
+Find the index of the first zero element in a linked list of integers.
+&
+\cite{KLEBANOV11}	
+\\
+
+\rownumber \namelabel{p:twaymax}{\textsc{2-max}} &
+Two-way max (\nref{p:twaymax}) &
+Find the maximum element in an array by searching at both ends.
+&
+\cite{BORMER11}	
+\\
+
+\rownumber \namelabel{p:twaysort}{\textsc{2-sort}} &
+Two-way sort (\nref{p:twaysort}) &
+Sort a Boolean array in linear time using swaps at both ends.
+&
+\cite{FILLIATRE12}	
+\\
+
+\rownumber \namelabel{p:dutchflag}{\textsc{dutch}} &
+Dutch flag (\nref{p:dutchflag}) &
+Partition an array in three different regions (specific and general verions).
+&
+\cite{DIJKSTRA76}	
+\\
+
+\rownumber \namelabel{p:lcp}{\textsc{lcp}} &
+LCP (\nref{p:lcp}) &
+Longest common prefix starting at given positions $x$ and $y$ in an array.
+ &
+\cite{HUISMAN12}	
+\\
+
+\rownumber \namelabel{p:rotation}{\textsc{rot}} &
+Rotation (\nref{p:rotation}) &
+Circularly shift a list by $k$ positions (multiple algorithms).
+&
+\cite{FURIA14}
+\\
+
+\rownumber \namelabel{p:sorting}{\textsc{sort}} &
+Sorting (\nref{p:sorting}) &
+Sorting of integer arrays (multiple algorithms).
+&
+
+\\
+
+\cline{1-2}
+
+
+\rownumber \namelabel{p:iterator}{\textsc{iter}}  &
+Iterator (\nref{p:iterator}) & 
+Multiple iterators over a collection are invalidated when the content changes.
+& 
+\cite['06]{SAVCBS}
+\\
+
+\rownumber \namelabel{p:subj-obs}{\textsc{s/o}}  &
+Subject/observer (\nref{p:subj-obs}) &
+Design pattern: multiple observers cache the content of a subject object.
+ &
+\cite['07]{SAVCBS}
+\\
+
+\rownumber \namelabel{p:composite}{\textsc{cmp}} &
+Composite (\nref{p:composite}) &
+Design pattern: a tree with consistency between parent and children nodes.
+&
+\cite['08]{SAVCBS}
+\\
+
+\rownumber \namelabel{p:mclock}{\textsc{mc}} &
+Master clock (\nref{p:mclock}) &
+A number of slave clocks are loosely synchronized to a master.
+&
+\cite{BARNETT04}
+\\
+
+\rownumber \namelabel{p:marriage}{\textsc{mar}} &
+Marriage (\nref{p:marriage}) &
+Person and spouse objects with co-dependent invariants.
+&
+\cite{LEINO04}
+\\
+
+\rownumber \namelabel{p:dllist}{\textsc{dll}} &
+Doubly-linked list (\nref{p:dllist}) &
+Linked list whose nodes have links to left and right neighbors.
+&
+\cite{LEINO04}
+\\
+
+\rownumber \namelabel{p:pip}{\textsc{pip}} &
+PIP (\nref{p:pip}) &
+Graph structure with cycles where each node links to at most one parent.
+&
+\cite{SUMMERS09} 
+\\
+
+\cline{1-2}
+
+
+\rownumber \namelabel{p:closures}{\textsc{close}} &
+Closures (\nref{p:closures}) &
+Various applications of function objects.
+&
+\cite{LEAVENS07}	
+\\
+ 
+\rownumber \namelabel{p:strategy}{\textsc{strat}} &
+Strategy (\nref{p:strategy}) &
+Design pattern: a program's behavior is selected at runtime. &
+\cite{LEAVENS07}
+\\
+
+\rownumber \namelabel{p:cmd}{\textsc{cmd}} &
+Command (\nref{p:cmd}) &
+Design pattern: encapsulate complete information to execute a command. &
+\cite{LEAVENS07}
+\\
+
+\rownumber \namelabel{p:map}{\textsc{map}} &
+Map ADT (\nref{p:map}) 
+&	
+Generic map ADT with layered data.
+&
+\cite{VSI08}	
+\\
+
+\rownumber \namelabel{p:linked-queue}{\textsc{queue}} &
+Linked queue (\nref{p:linked-queue}) &	
+Queue implemented using a linked list.
+&
+\cite{VSI08}	
+\\
+
+\rownumber \namelabel{p:tree-max}{\textsc{tmax}} &
+Tree maximum (\nref{p:tree-max}) &
+Find the maximum value in nodes of a binary tree.
+&
+\cite{BORMER11}	
+\\
+
+\rownumber \namelabel{p:ringbuffer}{\textsc{buff}} &
+Ring buffer (\nref{p:ringbuffer}) &
+A bounded queue implemented using a circular array.
+&
+\cite{FILLIATRE12}
+\\
+
+\rownumber \namelabel{p:hashset}{\textsc{hset}} &
+Hash set (\nref{p:hashset}) &
+A hash set with mutable elements.
+&
+\\
+
+\rownumber \namelabel{p:game1}{\textsc{game1}} &
+Board game 1 (\nref{p:game1}) &
+A simple board game application: players throw dice and move on a board.
+&
+\\
+
+\rownumber \namelabel{p:game2}{\textsc{game2}} &
+Board game 2 (\nref{p:game2}) &
+A more complex board game application: different board-square types.
+&
+\\
+
+\end{tabular}
+\end{footnotesize}
+\caption{Descriptions of benchmark problems.}
+\label{tab:Problems}
+\end{sidewaystable}
+
+
+
+
+
+%============================================================================
+\subsection{Verified Solutions with AutoProof} \label{sec:solutions}
+%============================================================================
+
+
+Table~\ref{tab:Solutions} displays data about the verified solutions to the problems of Section~ \ref{sec:problems}; for each problem: the number of Eiffel classes (\textsc{\#C}) and routines (\textsc{\#R}), the latter split into \textit{gh}ost functions and lemma procedures and \textit{co}ncrete (non-ghost) routines; the lines of executable Eiffel \textsc{code} and of Eiffel \textsc{specification} (a total of $T$ specification lines, split into preconditions $P$, postconditions $Q$, frame specifications $F$, loop invariants $L$ and variants $V$, auxiliary annotations including ghost code $A$, and class invariants $C$); the \textsc{s}/\textsc{c} specification to code ratio (measured in tokens)\footnote{In accordance with common practices in verification competitions, we count \emph{tokens} for the \textsc{s}/\textsc{c} ratio; but we provide other measures in \emph{lines}, which are more naturally understandable.}; the lines of \textsc{Boogie} input (where \textit{tr} is the problem-specific translation code and \textit{bg} are the included background theory necessary for verification); the overall verification time.
+
+
+\begin{table}
+\centering
+\begin{scriptsize}
+\setlength{\tabcolsep}{3pt}
+
+\begin{tabular}{rl rrr r rrrrrrrr r@{.}l rr r}
+\textsc{\#} & \textsc{name} & \textsc{\#C} & \multicolumn{2}{c}{\textsc{\#R}} & \textsc{code} & \multicolumn{8}{c}{\textsc{specification}} & \multicolumn{2}{c}{\textsc{s}/\textsc{c}} & \multicolumn{2}{c}{\textsc{Boogie}} & \multicolumn{1}{c}{\textsc{time} [s]} \\
+&&&{\scriptsize \textit{co}}&{\scriptsize \textit{gh}}&& {\scriptsize $T$} & {\scriptsize $P$} & {\scriptsize $Q$} & {\scriptsize $F$} &{\scriptsize $L$} & {\scriptsize $V$} & {\scriptsize $A$} & {\scriptsize $C$}  &\multicolumn{2}{c}{}& {\scriptsize \textit{tr}} &{\scriptsize \textit{bg}} \\
+\hline
+
+
+\ref{p:arith} & \nref{p:arith} & 
+1 & 6 & 0 & 
+99 & 44 &
+11 & 12 & 0 & 12 & 9 & 0 & 0 &
+0&4 & 
+927 & 579& 3.1 
+\\
+
+\ref{p:binsearch} & \nref{p:binsearch} &
+1 & 4 & 1 & 
+62 & 48 &
+11 & 12 & 0 & 6 & 3 & 16 & 0 &
+1&6 & 
+965 & 1355 & 3.7
+\\
+
+\ref{p:sum-max} & \nref{p:sum-max} &
+1 & 1 & 0 & 
+23 & 12 &
+3 & 2 & 1 & 4 & 0 & 2 & 0 &
+1&0 & 
+638 & 1355 & 3.9
+\\
+
+\ref{p:search-list} & \nref{p:search-list} &
+2 & 5 & 1 & 
+57 & 62 &
+2 & 12 & 2 & 6 & 2 & 27 & 11 &
+2&3 & 
+931 & 1355 & 4.1
+\\
+
+\ref{p:twaymax} & \nref{p:twaymax} &
+1 & 1 & 0 & 
+23 & 12 &
+2 & 4 & 0 & 4 & 2 & 0 & 0 &
+2&3 & 
+583 & 1355 & 3.0
+\\
+
+\ref{p:twaysort} & \nref{p:twaysort} &
+1 & 2 & 0 & 
+35 & 28 &
+5 & 7 & 2 & 6 & 2 & 6 & 0 &
+1&8 & 
+683 & 1355 & 3.2
+\\
+
+\ref{p:dutchflag} & \nref{p:dutchflag} &
+1 & 4 & 1 &
+72 & 75 &
+13 & 22 & 4 & 21 & 0 & 15 & 0 &
+2&6 & 
+1447 & 1355 & 4.1
+\\
+
+\ref{p:lcp} & \nref{p:lcp} &
+2 & 2 & 0 &
+40 & 28 &
+4 & 7 & 0 & 6 & 2 & 9 & 0 &
+1&0 & 
+1359 & 1355 & 4.2
+\\
+
+\ref{p:rotation} & \nref{p:rotation} &
+1 & 3 & 3 &
+51 & 74 &
+14 & 10 & 3 & 17 & 2 & 28 & 0 &
+2&6 & 
+1138 & 1355 & 4.1
+\\
+
+\ref{p:sorting} & \nref{p:sorting} &
+1 & 9 & 6 &
+177 & 219 &
+31 & 38 & 9 & 56 & 5 & 80 & 0 &
+2&6 & 
+2302 & 1355 & 5.8 
+\\
+
+\cline{1-2}
+
+\ref{p:iterator} & \nref{p:iterator} &
+3 & 8 & 0 &
+88 & 69 &
+15 & 26 & 6 & 0 & 0 & 11 & 11 &
+1&4 & 
+1461 & 1355 & 8.9 
+\\
+
+\ref{p:subj-obs} & \nref{p:subj-obs} &
+3 & 6 & 0 &
+71 & 56 &
+10 & 14 & 4 & 3 & 0 & 15 & 10 &
+1&4 & 
+1156 & 1355 & 4.4
+\\
+
+\ref{p:composite} & \nref{p:composite} &
+2 & 5 & 3 &
+54 & 125 &
+19 & 18 & 5 & 0 & 2 & 72 & 9 &
+4&3 & 
+1327 & 1355 & 7.5 
+\\
+
+\ref{p:mclock} & \nref{p:mclock} &
+3 & 7 & 0 &
+63 & 61 &
+9 & 14 & 5 & 0 & 0 & 26 & 7 &
+1&8 & 
+956 & 579 & 3.7 
+\\
+
+\ref{p:marriage} & \nref{p:marriage} &
+2 & 5 & 0 &
+45 & 50 &
+12 & 11 & 3 & 0 & 0 & 19 & 5 &
+2&3 & 
+755 & 579 & 3.3
+\\
+
+\ref{p:dllist} & \nref{p:dllist} &
+2 & 8 & 0 &
+69 & 76 &
+12 & 14 & 4 & 0 & 0 & 39 & 7 &
+2&0 & 
+891 & 579 & 4.4
+\\
+
+\ref{p:pip} & \nref{p:pip} &
+2 & 5 & 1 &
+54 & 111 &
+23 & 18 & 6 & 0 & 1 & 56 & 7 &
+3&9 & 
+988 & 1355 & 5.8
+\\
+
+
+\cline{1-2}
+
+
+\ref{p:closures} & \nref{p:closures} &
+9 & 18 & 0 &
+145 & 106 &
+40 & 31 & 8 & 0 & 0 & 22 & 5 &
+0&8 & 
+2418 & 688 & 5.7
+\\
+ 
+\ref{p:strategy} & \nref{p:strategy} &
+4 & 4 & 0 &
+43 & 5 &
+0 & 4 & 0 & 0 & 0 & 1 & 0 &
+0&2 & 
+868 & 579 & 3.3
+\\
+
+\ref{p:cmd} & \nref{p:cmd} &
+6 & 8 & 0 &
+77 & 32 &
+4 & 14 & 2 & 0 & 0 & 10 & 5 &
+0&7 & 
+1334 & 579 & 3.3
+\\
+
+\ref{p:map} & \nref{p:map} &
+1 & 8 & 0 & 
+78 & 67 &
+6 & 29 & 2 & 6 & 4 & 15 & 5 &
+2&3 & 
+1259 & 1355 & 4.1
+\\
+
+\ref{p:linked-queue} & \nref{p:linked-queue} &
+4 & 13 & 1 &
+121 & 101 &
+11 & 26 & 1 & 0 & 0 & 48 & 15 &
+1&5 & 
+2360 & 1355 & 7.4
+\\
+
+\ref{p:tree-max} & \nref{p:tree-max} &
+1 & 3 & 0 &
+31 & 43 &
+3 & 12 & 2 & 0 & 2 & 19 & 5 &
+2&1 & 
+460 & 1355 & 3.2
+\\
+
+\ref{p:ringbuffer} & \nref{p:ringbuffer} &
+1 & 9 & 0 &
+66 & 54 &
+8 & 19 & 4 & 0 & 0 & 12 & 11 &
+1&1 & 
+1256 & 1355 & 4.4
+\\
+
+\ref{p:hashset} & \nref{p:hashset} &
+5 & 14 & 5 &
+146 & 341 &
+45 & 39 & 10 & 20 & 2 & 197& 28 &
+3&7 & 
+3546 & 1355 & 13.7
+\\
+
+\ref{p:game1} & \nref{p:game1} &
+4 & 8 & 0 &
+165 & 93 &
+16 & 13 & 4 & 31 & 3 & 10 & 16 &
+1&2 & 
+4044 & 1355 & 26.6
+\\
+
+\ref{p:game2} & \nref{p:game2} &
+8 & 18 & 0 &
+307 & 173 &
+25 & 27 & 11 & 48 & 3 & 29 & 30 &
+1&4 & 
+7037 & 1355 & 54.2
+\\
+
+\hline
+& \textit{total} &
+72 & 184 & 22 &
+2262 & 2165 &
+354 & 455 & 98 & 246 & 44 & 784 & 184 &
+1&9 & 
+43089 & 1355 & 203.8
+
+\end{tabular}
+\end{scriptsize}
+\caption{Verification of benchmark problems with \AutoProof.}
+\label{tab:Solutions}
+\end{table}
+
+Given that we target full functional verification, our specification to code ratios are small to moderate, which demonstrates that \AutoProof's notation and methodology support concise and effective annotations for verification.
+Verification times also tend to be moderate, which demonstrates that \AutoProof's translation to Boogie is effective.
+
+To get an idea of the kinds of annotations required, and of their level of abstraction, we computed the ratio $A/T$ of auxiliary to total annotations.
+On average, 2.8 out of 10 lines of specification are auxiliary annotations;
+the distribution is quite symmetric around its mean; auxiliary annotations are less than 58\% of the specification lines in all problems.
+Auxiliary annotations tend to be lower level, since they outline intermediate proof goals which are somewhat specific to the way in which the proof is carried out.
+Thus, the observed range of $A/T$ ratios seems to confirm how \AutoProof supports incrementality: complex proofs are possible but require more, lower level annotations.
+
+
+

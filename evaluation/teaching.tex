@@ -1,0 +1,62 @@
+%############################################################################
+\section{\AutoProof in the Classroom}
+\label{sec:eval-teaching}
+%############################################################################
+
+\AutoProof has been used in a Master's level software verification course at ETH Zurich in the fall semester 2014~\cite{SVCOURSE14}.
+The course introduces students to different techniques and tools of software verification.
+The students were provided with an introduction and a tutorial for \AutoProof, and then used \AutoProof for an exercise and a project.
+
+%----------------------------------------------------------------------------
+\subsubsection{Exercise}
+%----------------------------------------------------------------------------
+
+In the exercise, students used the web-interface of \AutoProof to solve different tasks of increasing difficulty:
+
+\begin{enumerate}
+
+\item The students were given a class that implements a simple counter starting from 0 and wrapping around at 59. The class was missing the precondition and several postcondition consisting of basic arithmetic properties, which students had to fill in.
+
+\item Students were given Hoare triples which they had to encode and check in \AutoProof.
+
+\item The third task was to add the precondition and loop invariant to an algorithm that computes the maximum of an array. The solution required a first-order loop invariant, which could be adapted from the given postcondition.
+
+\item Given an algorithm that computes the sum and maximum element of an array, the students were asked to provide a loop invariant and postcondition about interesting properties of the algorithm.
+
+\item In the last task, the students were given the implementation of the \emph{longest common prefix} algorithm of the FM 2012 verification competition without any contracts, together with a client of the \e{lcp} function using it for various test cases. The students were asked to write the full specification of the \e{lcp} function.
+
+\end{enumerate}
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Project}
+%----------------------------------------------------------------------------
+
+In small teams the students had to use both \AutoProof and Boogie~\cite{LEINO08} to implement and verify a list class. The class uses an array for the storage of elements and has a special sort routine using a different sorting algorithm based on the number and the value range of the list elements. If the list contains more than a predefined number of elements and all these elements are in a given range, the bucket-sort algorithm is used, otherwise quick-sort~\cite{CORMEN09}. The two sorting algorithms have non-trivial specifications and, depending on the encoding of the specifications, need additional lemmas to be successfully verified with \AutoProof.
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Results}
+%----------------------------------------------------------------------------
+
+There were nine teams that finished the project.
+The results of using \AutoProof are the following:
+\begin{itemize}
+\item Two teams specified and verified the list class completely.
+\item Five teams achieved very good results and provided full specification, but failed in verifying all components of the sorting routines' postcondition.
+\item Two teams performed badly, partially due to introducing inconsistencies in the specification without noticing it.
+\end{itemize}
+
+The results indicate that the students were able to successfully use \AutoProof to verify a non-trivial algorithm.
+However, there were two main issues:
+\begin{enumerate}
+\item
+Teams that achieved good results but failed to completely verify the classes had issues to help \AutoProof verify properties of \emph{sets} and \emph{sequences}  modelled with MML. Depending on the encoding used to write the specifications, a considerable amount of intermediate assertions or lemmas is necessary to verify such properties.
+
+\item
+When writing inconsistent specifications, \AutoProof will happily verify every program. There are currently no built-in facilities to check if specifications contain a contradiction.
+\end{enumerate}
+
+To remedy this situation, students need to be provided with better training on \AutoProof.
+For this, we have created a new tutorial that provides a more systematic approach and more exercises for use in future courses (see Appendix~\ref{sec:ap-tutorial}).
+

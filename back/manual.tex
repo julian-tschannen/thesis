@@ -1,0 +1,1002 @@
+%############################################################################
+\chapter{\AutoProof Manual}
+\label{sec:ap-manual}
+\chapterimage{images/manual}
+%############################################################################
+
+    This manual describes how to use \AutoProof. \AutoProof is an auto-active verifier for the 
+    Eiffel programming language that can prove functional correctness of Eiffel programs annotated with contracts.
+	\AutoProof is available as part of the Eiffel Verification Environment (EVE) or via an online version.
+
+The manual is also available online:
+\begin{center}
+\url{http://se.inf.ethz.ch/research/autoproof/manual}.
+\end{center}
+
+
+%============================================================================
+\section{\AutoProof in EVE}
+%============================================================================
+
+    AutoProof is integrated in \EVE, a research branch of EiffelStudio.
+
+\subsubsection{Installation}
+
+    Follow the installation instructions of \EVE\footnote{\url{http://se.inf.ethz.ch/research/eve}}.
+
+\subsubsection{Open Project}
+
+    Open and compile an EiffelStudio project using the EVE base library. For this you can download the example project provided\footnote{\url{http://se.inf.ethz.ch/research/autoproof/manual/template.zip}}. Launch EVE using the \emph{run\_eve} script in the EVE delivery and add the example's ecf file using the \emph{add project} button. When you have added the project you can open and compile it.
+
+
+\subsubsection{Open \AutoProof tool panel}
+
+    Click the menu entry \emph{View > Tools > AutoProof}. This will show the \AutoProof panel, which can be docked like the other tools in EVE.
+
+\subsubsection{Run \AutoProof}
+
+    The Eiffel compilation of the project has to be finished and successful in order to run \AutoProof. It is not necessary to do the C compilation when working with \AutoProof. When the project is compiled successfully, there are three ways to launch AutoProof:
+
+  \begin{itemize}
+    \item You can run \AutoProof using the \emph{Verify} button. By default, \AutoProof will verify the class or cluster that is shown in the editor pane. You can change this behavior by clicking the down-arrow on the \emph{Verify} button and select either to verify the parent cluster of the item currently shown in the editor, or to verify the whole system (excluding libraries).
+    \item You can pick-and-drop a feature, class, or cluster onto the \emph{Verify} button.
+    \item You can right-click a feature or class, and select \emph{Verify with AutoProof} in the context menu.
+  \end{itemize}
+
+    Only one execution of \AutoProof can run at a time, so when the verification has started the \emph{Verify} button will become inactive.
+
+\subsubsection{Stop \AutoProof}
+
+    When \AutoProof is running you can stop it using the red stop button next to the \emph{Verify} button. This can be helpful if you want to cancel a long-running verification.
+
+\subsubsection{Filtering Results}
+
+    There are two ways of filtering the results displayed by AutoProof:
+
+  \begin{itemize}
+    \item The three toggle-buttons can be used to show or hide all successful results, failed verifications, or semantic errors.
+    \item The filter box can be used to enter a text. Only results will be shown where this text is contained in either the class name, feature name, or text message. To clear the filter box you can click the red \emph{x} button next to it.
+  \end{itemize}
+
+\subsubsection{Options}
+
+    On the top-right of the \AutoProof tool is the options button. Clicking it will display the available options and if the option is enabled or disabled. Clicking any of the options will toggle its value. For an explanation of the options see the AutoProof Options Section~\ref{manual:options}.
+
+
+%============================================================================
+\section{\AutoProof on the Command-line}
+%============================================================================
+
+    The command-line version of \AutoProof is available as part of EVE.
+
+\subsubsection{Run \AutoProof}
+
+    To run \AutoProof via the command-line you have to run the EVE command-line compiler with a valid Eiffel project and add the \emph{-autoproof} option: 
+
+\begin{erunning}
+  ec.exe -config #\emph{ecf-file}# -target #\emph{ecf-target}# -autoproof
+\end{erunning}
+
+
+    By default all user classes in the system are verified by \AutoProof. To select which classes or routines are verified, you can add the class names and routine names as additional command-line arguments. The routine name is composed of the class name together with the routine in the format \e{CLASS.routine}.
+
+\subsubsection{Options}
+
+    \AutoProof has the same options on the command-line as for the graphical version. The available command-line options are listed in the \AutoProof Options Section~\ref{manual:options}.
+
+
+%============================================================================
+\section{\AutoProof on the Web}
+%============================================================================
+
+    The online version of \AutoProof\footnote{\url{http://cloudstudio.ethz.ch/comcom/\#AutoProof}} is integrated in ComCom\footnote{\url{http://cloudstudio.ethz.ch/comcom/}}, an online interface to run command-line tools.
+
+\subsubsection{Examples}
+
+    Across the top of the \AutoProof interface on Comcom are different examples that can be selected. The examples can be adapted in the browser. To reload the original version, click the reload button on the top-right.
+
+\subsubsection{Custom code}
+
+    The last tab \emph{More \AutoProof} can be used to write your own code. In addition to writing your own code you can use command-line options on this tab. For a list of command-line options, see the \AutoProof Options Section~\ref{manual:options}.
+
+\subsubsection{Run \AutoProof}
+
+    To run \AutoProof, click the \emph{Run} button below the code area. The results will be shown in the box below the button. Note that changing the example will clear the results box. The verification time is limited to 2 minutes, you will get a result or a time-out message after that time.
+
+\subsubsection{Limitations}
+
+    The ComCom version of \AutoProof is limited to examples that consist only of one user-defined class. You can use the classes of the EVE version of EiffelBase in your code, in particular the ones defined in the \AutoProof base library\footnote{\url{http://se.inf.ethz.ch/research/autoproof/reference}}. It is not possible to add further libraries.
+
+
+%============================================================================
+\section{\AutoProof Options} \label{manual:options}
+%============================================================================
+
+    There are different options which influence the behavior of the AutoProof translation and execution as a whole, as opposed to annotations which only affect individual classes or features (see the Annotations Section~\ref{manual:annotations} for details). Table~\ref{tab:manual:options} lists these options. The command-line switches usually come in pairs: one switch turns the option on and the other turns it off.
+
+\begin{sidewaystable}
+\centering
+\begin{tabular}{>{\bfseries}llp{3cm}p{9cm}}
+\textbf{Option name} & \textbf{Default} & \textbf{CLI switch} & \textbf{Description} \\
+\hline
+Two-step & Disabled & -twostep \newline -notwostep & Use two-step verification when enabled. \\ 
+\hline
+Automatic inlining & Disabled & -autoinline \newline -noautoinline & Inline routines without postcondition automatically when enabled. \\ 
+\hline
+Automatic unrolling & Disabled & -autounroll \newline -noautounroll & Unroll loops without loop invariants automatically when enabled. \\ 
+\hline
+Postcondition predicates & Disabled & -postpredicate \newline -nopostpredicate & Generate postcondition predicates when enabled. \\ 
+\hline
+Overflow & Disabled & -overflow \newline -nooverflow & Check for integer overflows when enabled. \\ 
+\hline
+Generate triggers & Disabled & -trigger \newline -notrigger & Generates triggers for across expressions when enabled. \\ 
+\hline
+Arithmetic triggers & Disabled & -arithtrigger \newline -noarithtrigger & Uses arithmetic functions for triggers when enabled. \\ 
+\hline
+SC defaults & Enabled & -scdefaults \newline -noscdefaults & Use semantic collaboration defaults when enabled. \\ 
+\hline
+Bulk verification & Bulk & -bulk \newline -forked & Bulk: all routines are verified at the same time and the results are displayed at the end. \newline Forked: routines are verified in parallel and results are displayed when available. \\ 
+\hline
+Timeout &  & -timeout X & \emph{Command-line only} - Boogie timeout in seconds. \\ 
+\hline
+HTML output &  & -html & \emph{Command-line only} - Produce HTML output. \\ 
+\hline
+
+\end{tabular}
+\caption{\AutoProof options for the graphical and command-line interface}
+\label{tab:manual:options}
+\end{sidewaystable}
+
+
+
+%============================================================================
+\section{Verification Process}
+%============================================================================
+
+
+\subsubsection{Modularity}
+
+  \AutoProof does routine-level modular verification. Each routine is verified in isolation and only the interface of suppliers are considered during the verification of a routine. A program can only be considered fully verified if all routines are verified individually. By default \AutoProof only verifies user-written classes when a program is verified, referenced libraries should be verified separately.
+
+\subsubsection{Creation routines}
+
+  Creation routines in Eiffel double as regular routines and can be called on existing objects. Since routines behave differently depending on whether they are called as a creation routine, e.g. the class invariant is not checked on entry and all attributes are set to their default value for creation routines, these routines are verified twice with \AutoProof. The feedback of \AutoProof will list these routines twice specifying the context of the verification.
+
+  
+\subsubsection{Assumptions}
+
+  It can be useful to temporarily assume a fact that the verifier should use. This helps in debugging failed verifications, e.g. by directing the verifier in a specific branch. You can write an assumption using a check instruction with the special tag \emph{assume}.
+
+\begin{erunning}
+check assume: False end
+\end{erunning}
+
+\subsubsection{Skipping classes or routines}
+
+You can skip the verification of single routines or classes by adding a note clause.
+
+\begin{erunning}
+note
+  status: skip
+\end{erunning}
+  
+
+
+%============================================================================
+\section{Language Support} \label{manual:lang-support}
+%============================================================================
+
+\definecolor{full}{HTML}{DDFFDD}
+\definecolor{partial}{HTML}{FFFFDD}
+\definecolor{none}{HTML}{FFDDDD}
+
+
+  The programming language that \AutoProof supports is not exactly the standard Eiffel language. Some features of the Eiffel language are not supported, on the other hand custom annotations have been added to increase the expressiveness of the specification language. All custom annotations are valid syntax in standard Eiffel.
+
+%\subsection*{Standard Eiffel Support}
+
+  \AutoProof supports a large portion of the Eiffel language. When \AutoProof encounters code constructs it does not support, it will try to degrade in a correct but incomplete way in order to verify the surrounding program. In any case, a special message will be displayed. Here is a comprehensive list of supported and unsupported instructions, expressions, and language concepts.
+The color coding represents the level of support for the construct: \colorbox{full}{green} represents full support, \colorbox{partial}{yellow} partial support, and \colorbox{none}{red} no support.
+
+
+%----------------------------------------------------------------------------
+\subsection{Instructions}
+%----------------------------------------------------------------------------
+
+\noindent
+\begin{longtable}{|l|l|m{6.8cm}|}
+\hline
+\textbf{Name} & \textbf{Example} & \textbf{Comment} \\ \endhead  \hline
+
+Assignment
+\cellcolor{full} 
+&
+{\begin{erunning}
+a := b
+\end{erunning}}
+&
+
+\\ \hline
+
+Call
+\cellcolor{full}
+&
+{\begin{erunning}
+a.f (x)
+\end{erunning}}
+&
+The verification will check if \e{a} is not Void and if the precondition of \e{f} holds. Adding tag names to the preconditions of \e{f} improves the error reporting.
+\\ \hline
+
+Check
+\cellcolor{full}
+&
+{\begin{erunning}
+check
+	tag: c
+end
+\end{erunning}}
+&
+The verification will check if the condition \e{c} holds. Adding a tag name improves the error reporting.
+\\ \hline
+
+Conditional
+\cellcolor{full}
+&
+{\begin{erunning}
+if c then
+... 
+else 
+... 
+end
+\end{erunning}}
+&
+\\ \hline
+
+Creation
+\cellcolor{full}
+&
+{\begin{erunning}
+create a.f(x)
+\end{erunning}}
+&
+The verification will check if the precondition of \e{f} holds. Adding tag names to the preconditions of \e{f} improves the error reporting.\\ \hline
+
+Debug
+\cellcolor{full}
+&
+{\begin{erunning}
+debug ... end
+\end{erunning}}
+&
+\\ \hline
+
+Inspect
+\cellcolor{full}
+&
+{\begin{erunning}
+inspect a
+when x then ...
+when y..z then ...
+else ...
+end
+\end{erunning}}
+&
+\\ \hline
+
+From loop
+\cellcolor{full}
+&
+{\begin{erunning}
+from ...
+invariant
+	tag1: i1
+	tag2: i2
+until c
+loop ...
+variant v end
+\end{erunning}}
+&
+The verification will check if the invariants \e{i1} and \e{i2} hold after the (possibly empty) \e{from} block is executed and after every loop iteration. If a loop variant \e{v} or \e{decreases} annotation is provided then it is checked that the variant is non-negative and is reduced in every loop iteration. Adding tag names to the loop invariants improves the error reporting.
+\\ \hline
+
+Across loop
+\cellcolor{none}
+&
+{\begin{erunning}
+across a as c
+loop ...
+end
+\end{erunning}}
+&
+Across loops can be expressed with from loops.
+\\ \hline
+
+
+Retry
+\cellcolor{none}
+&
+{\begin{erunning}
+retry
+\end{erunning}}
+&
+The retry statement is only used in exception handling, which is not supported.
+\\ \hline
+\end{longtable}
+
+
+%----------------------------------------------------------------------------
+\subsection{Expressions} 
+%----------------------------------------------------------------------------
+
+\noindent
+\begin{longtable}{|m{2.7cm}|l|m{6.2cm}|}
+\hline
+\textbf{Name} & \textbf{Example} & \textbf{Comment} \\ \endhead  \hline
+
+Access
+\cellcolor{full}
+&
+{\begin{erunning}
+a
+\end{erunning}}
+&
+
+\\ \hline
+
+Across
+\cellcolor{partial}
+&
+{\begin{erunning}
+across set as c 
+	all ... end
+across 1 |..| 5 as c 
+	some ... end
+\end{erunning}}
+&
+Only specific container types are supported: MML types, \newline\e{INTEGER_INTERVAL},\newline \e{SIMPLE_ARRAY}, and \e{SIMPLE_LIST}.
+\\ \hline
+
+Address
+\cellcolor{none}
+&
+{\begin{erunning}
+#\$#
+\end{erunning}}
+&
+The address operator is used to interoperate with external C code, which is not supported.
+\\ \hline
+
+Access
+\cellcolor{full}
+&
+{\begin{erunning}
+a
+\end{erunning}}
+&
+
+\\ \hline
+
+Call
+\cellcolor{full}
+&
+{\begin{erunning}
+a.f (x)
+\end{erunning}}
+&
+The verification will check if \e{a} is not Void and if the precondition of \e{f} holds. Adding tag names to the preconditions of \e{f} improves the error reporting.
+\\ \hline
+
+Conditional
+\cellcolor{full}
+&
+{\begin{erunning}
+if c then x 
+	else y end
+\end{erunning}}
+&
+\\ \hline
+
+Creation \newline \emph{(body)}
+\cellcolor{full}
+&
+{\begin{erunning}
+create {T}.f (x)
+\end{erunning}}
+&
+The verification will check if the precondition of \e{f} holds. Adding tag names to the preconditions of \e{f} improves the error reporting.
+\\ \hline
+
+Creation \newline \emph{(contract)}
+\cellcolor{none}
+&
+{\begin{erunning}
+create {T}.f (x)
+\end{erunning}}
+&
+The contracts have to be side-effect free, creating objects in the contract is not supported.
+\\ \hline
+
+Agents
+\cellcolor{partial}
+&
+{\begin{erunning}
+agent f
+\end{erunning}}
+&
+\\ \hline
+
+Manifest array \newline \emph{(body)}
+\cellcolor{full}
+&
+{\begin{erunning}
+<<a, b>>
+\end{erunning}}
+&
+This syntax can be used to initialize \e{SIMPLE_ARRAY}, \e{MML_SET}, or \e{MML_SEQUENCE} entities.
+\\ \hline
+
+Manifest array \newline \emph{(contract)}
+\cellcolor{partial}
+&
+{\begin{erunning}
+<<a, b>>
+\end{erunning}}
+&
+This syntax can be used to initialize \e{MML_SET} or \e{MML_SEQUENCE} entities. Otherwise it is not supported as contracts have to be side-effect free.
+\\ \hline
+
+Manifest string \newline \emph{(body)}
+\cellcolor{partial}
+&
+{\begin{erunning}
+"abc"
+\end{erunning}}
+&
+AutoProof provides a special string class \e{V_STRING} which can be initialized with manifest strings.
+\\ \hline
+
+Manifest string \newline \emph{(contract)}
+\cellcolor{none}
+&
+{\begin{erunning}
+"abc"
+\end{erunning}}
+&
+Not supported as contracts have to be side-effect free.
+\\ \hline
+
+Manifest tuple \newline \emph{(body)}
+\cellcolor{full}
+&
+{\begin{erunning}
+[a, b]
+\end{erunning}}
+&
+This syntax can be used to initialize \e{TUPLE}s or \e{MML_SET} entities.
+\\ \hline
+
+Manifest tuple \newline \emph{(contract)}
+\cellcolor{partial}
+&
+{\begin{erunning}
+[a, b]
+\end{erunning}}
+&
+This syntax can be used to initialize \e{MML_SET} entities. Otherwise it is not supported as contracts have to be side-effect free.
+\\ \hline
+
+Object test
+\cellcolor{full}
+&
+{\begin{erunning}
+attached {T} a
+	as x
+\end{erunning}}
+&
+This syntax can be used to initialize \e{MML_SET} entities. Otherwise it is not supported as contracts have to be side-effect free.
+\\ \hline
+
+Old
+\cellcolor{full}
+&
+{\begin{erunning}
+old a
+\end{erunning}}
+&
+The old keyword can only be used in postconditions. For accessing the prestate in the routine body \AutoProof provides a special query \e{old_}.
+\\ \hline
+
+\end{longtable}
+
+
+%----------------------------------------------------------------------------
+\subsection{Library support and built-in types} 
+%----------------------------------------------------------------------------
+
+\noindent
+\begin{longtable}{|m{2.7cm}|l|m{6.35cm}|}
+\hline
+\textbf{Name} & \textbf{Example} & \textbf{Comment} \\ \endhead  \hline
+
+Boolean values
+\cellcolor{full}
+&
+{\begin{erunning}
+True
+False
+\end{erunning}} 
+&
+\\ \hline
+
+Boolean \newline operations
+\cellcolor{full}
+&
+{\begin{erunning}
+a and b or c
+a implies b xor c
+\end{erunning}} 
+&
+\\ \hline
+
+Integer values
+\cellcolor{full}
+&
+{\begin{erunning}
+1
+-2
+\end{erunning}} 
+&
+\\ \hline
+
+Integer \newline arithmetic 
+\cellcolor{full}
+&
+{\begin{erunning}
+a + b - c
+a * b // c
+\end{erunning}} 
+&
+The handling of integers is based on the built-in capabilities of Boogie. AutoProof also checks arithmetic overflows (if enabled).
+\\ \hline
+
+Floating point \newline values
+\cellcolor{partial}
+&
+{\begin{erunning}
+1.3
+-2.4
+\end{erunning}} 
+&
+Floating point values are mapped to Boogie's \b{real} type. This is only an approximation of floating-point numbers.
+\\ \hline
+
+Floating point \newline arithmetic
+\cellcolor{partial}
+&
+{\begin{erunning}
+a + b - c
+a * b // c
+\end{erunning}} 
+&
+Floating point values are mapped to Boogie's \b{real} type. This is only an approximation of floating-point numbers.
+\\ \hline
+
+Character values
+\cellcolor{full}
+&
+{\begin{erunning}
+'c'
+\end{erunning}} 
+&
+Characters are mapped to the integer code of the character.
+\\ \hline
+
+Character \newline operations
+\cellcolor{partial}
+&
+{\begin{erunning}
+a + b
+c.to_upper
+\end{erunning}} 
+&
+Only basic arithmetic on characters is supported.
+\\ \hline
+
+Strings
+\cellcolor{partial}
+&
+{\begin{erunning}
+"abc"
+\end{erunning}} 
+&
+AutoProof provides a special string class \e{V_STRING} which can be initialized with manifest strings.
+\\ \hline
+
+Base library
+\cellcolor{partial}
+&
+{\begin{erunning}
+a: SIMPLE_ARRAY
+a[1]
+a.put (v, 3)
+\end{erunning}} 
+&
+An array and a list class are provided specifically for the use in spe\-cification: \e{SIMPLE_ARRAY} and  \newline \e{SIMPLE_LIST}.
+\\ \hline
+
+\end{longtable}
+
+  
+
+%============================================================================
+\section{Annotations}\label{manual:annotations}
+%============================================================================
+  
+The following tables give a summary of the custom annotations supported by AutoProof. If you use the same tag name for multiple values, you can use either multiple note entries or a comma-separated list for the values. For example the following two declarations are equivalent:
+
+\begin{tabular}{ll}
+{\begin{erunning}
+note
+	status: skip, functional
+ #\ #
+\end{erunning}}
+&
+{\begin{erunning}
+note
+	status: skip
+	status: functional
+\end{erunning}}
+\end{tabular}
+
+%----------------------------------------------------------------------------
+\subsection{Class Annotations}
+%----------------------------------------------------------------------------
+
+These annotation can be used in the \e{note} clause of a class.
+
+\noindent
+\begin{longtable}{|m{2.5cm}|l|m{6.05cm}|}
+\hline
+\textbf{Name} & \textbf{Example} & \textbf{Comment} \\ \endhead  \hline
+
+Explicit &
+{\begin{erunning}
+explicit: "all"
+\end{erunning}} &
+Turn off all semantic collaboration defaults in the class.
+\\ \hline
+
+Explicit \newline Contracts &
+{\begin{erunning}
+explicit: contracts
+\end{erunning}} &
+Turn off all semantic collaboration default contracts in the class.
+\\ \hline
+
+Explicit Sets &
+{\begin{erunning}
+explicit: observers
+explicit: subjects
+explicit: owns
+\end{erunning}} &
+Turn off semantic collaboration default invariants for the mentioned sets.
+\\ \hline
+
+Explicit \newline Wrapping &
+{\begin{erunning}
+explicit: wrapping
+\end{erunning}} &
+Turn off all semantic collabora\-ti\-on default unwrapping and wrapping instructions in the class.
+\\ \hline
+
+Manual inv() &
+{\begin{erunning}
+manual_inv: True
+\end{erunning}} &
+If \e{True} then you need to insert manual \e{inv}, \e{inv_only}, and \e{inv_without} assertions in the code.
+\\ \hline
+
+Model &
+{\begin{erunning}
+model: f, g
+\end{erunning}} &
+List of model queries.
+\\ \hline
+
+Status: Skip &
+{\begin{erunning}
+status: skip
+\end{erunning}} &
+Skip verification of whole class.
+\\ \hline
+
+Theory &
+{\begin{erunning}
+theory: "file.bpl"
+\end{erunning}} &
+Include the specified theory file in the generated Boogie code.
+\\ \hline
+
+Type \newline Mapping &
+{\begin{erunning}
+maps_to: "t"
+\end{erunning}} &
+Map this class to the specified custom Boogie type.
+\\ \hline
+
+Type \newline Properties &
+{\begin{erunning}
+type_properties: "f"
+\end{erunning}} &
+Comma-separated list of Boogie functions that define the type properties for reference-type generic parameters.
+\\ \hline
+
+Type \newline Invariant &
+{\begin{erunning}
+where: "f"
+\end{erunning}} &
+Boogie function that defines the type invariant for this type.
+\\ \hline
+
+\end{longtable}
+  
+
+%----------------------------------------------------------------------------
+\subsection{Feature Annotations}
+%----------------------------------------------------------------------------
+
+These annotation can be used in the \e{note} clause of a feature.
+
+\noindent
+\begin{longtable}{|m{2.5cm}|l|m{6cm}|}
+\hline
+\textbf{Name} & \textbf{Example} & \textbf{Comment} \\ \endhead  \hline
+
+Explicit &
+{\begin{erunning}
+explicit: "all"
+\end{erunning}} &
+Turn off all semantic collaboration defaults in the feature.
+\\ \hline
+
+Explicit \newline Contracts &
+{\begin{erunning}
+explicit: contracts
+\end{erunning}} &
+Turn off semantic collaboration default contracts in the feature.
+\\ \hline
+
+Explicit \newline Wrapping &
+{\begin{erunning}
+explicit: wrapping
+\end{erunning}} &
+Turn off semantic collaboration default unwrapping and wrapping instructions in the feature.
+\\ \hline
+
+Function \newline Mapping &
+{\begin{erunning}
+maps_to: "f"
+\end{erunning}} &
+Map this feature to the specified Boogie function.
+\\ \hline
+
+Guard &
+{\begin{erunning}
+guard: True
+guard: False
+guard: "f"
+\end{erunning}} &
+Set the update guard of this attribute to the specified value. The update guard feature has to be \e{functional}.
+\\ \hline
+
+Inlining &
+{\begin{erunning}
+inline: True
+inline: 4
+\end{erunning}} &
+Inline calls in this routine. If a number is given, then the calls will be inlined up to the specified depth.
+\\ \hline
+
+Manual inv() &
+{\begin{erunning}
+manual_inv: True
+\end{erunning}} &
+If set to true then you need to insert manual \e{inv}, \e{inv_only}, and \e{inv_without} assertions in the code.
+\\ \hline
+
+Status: \newline Creator &
+{\begin{erunning}
+status: creator
+\end{erunning}} &
+Verify this routine only in the context of a creation routine.
+\\ \hline
+
+Status: \newline Dynamic &
+{\begin{erunning}
+status: dynamic
+\end{erunning}} &
+Verify this routine assuming the \e{Current} type might be a subtype. This removes the need to reverify this routine in subclasses.
+\\ \hline
+
+Status: \newline Functional &
+{\begin{erunning}
+status: functional
+\end{erunning}} &
+Mark this routine as functional. Functional features can only contain a single instruction that assigns a value to the \e{Result}.
+\\ \hline
+
+Status: \newline Ghost &
+{\begin{erunning}
+status: ghost
+\end{erunning}} &
+Mark the feature as a ghost feature.
+\\ \hline
+
+Status: \newline Impure &
+{\begin{erunning}
+status: impure
+\end{erunning}} &
+Functions are supposed to have an empty modifies clause and are therefore pure. By marking a function as impure, you can add a modifies clause.
+\\ \hline
+
+Status: \newline Inline &
+{\begin{erunning}
+status: inline
+\end{erunning}} &
+Mark this feature to be always inlined in the caller.
+\\ \hline
+
+Status: \newline Lemma &
+{\begin{erunning}
+status: lemma
+\end{erunning}} &
+Mark this feature as a lemma. Lemma features have no automatic unwrapping and wrapping of the Current object and are implicitly ghost.
+\\ \hline
+
+Status: \newline Skip &
+{\begin{erunning}
+status: skip
+\end{erunning}} &
+Skip verification of this feature.
+\\ \hline
+
+\end{longtable}
+	
+
+%----------------------------------------------------------------------------
+\subsection{Precondition and Loop Invariant Functions}
+%----------------------------------------------------------------------------
+
+These annotations are used in the precondition of features or the invariant clause of loops.
+
+\noindent
+\begin{longtable}{|m{1.9cm}|l|m{5.6cm}|}
+\hline
+\textbf{Name} & \textbf{Example} & \textbf{Comment} \\ \endhead  \hline
+
+Decreases &
+{\begin{erunning}
+decreases (x)
+decreases ([x, y])
+decreases ([])
+\end{erunning}} &
+Specify the variant of a recursive function or a loop. An empty decreases clause (last line) removes the termination check entirely.
+\\ \hline
+
+Modifies \newline (object) &
+{\begin{erunning}
+modify (Current)
+modify (set)
+\end{erunning}} &
+Allow this routine or loop to modify all attributes of the given objects.
+\\ \hline
+
+Modifies \newline (field) &
+{\begin{erunning}
+modify_field ("x", o)
+modify_field ("x", set)
+modify_field (["x", "y"], o)
+\end{erunning}} &
+Allow this routine or loop to modify the specified attributes of the given objects.
+\\ \hline
+
+Modifies \newline (model) &
+{\begin{erunning}
+modify_model ("x", o)
+modify_model ("x", set)
+modify_model (["x", "y"], o)
+\end{erunning}} &
+Allow this routine or loop to modify the specified models of the given objects.
+\\ \hline
+
+Reads &
+{\begin{erunning}
+reads (o)
+reads_field ("attr", o)
+reads_model ("attr", o)
+\end{erunning}} &
+Allow this functional routine to read the specified objects, attributes or models.
+\\ \hline
+
+\end{longtable}
+
+%----------------------------------------------------------------------------
+\subsection{Commands and Queries}
+%----------------------------------------------------------------------------
+
+These features are used in the regular body of routines.
+
+\noindent
+\begin{longtable}{|m{2.5cm}|l|m{6cm}|}
+\hline
+\textbf{Name} & \textbf{Example} & \textbf{Comment} \\ \endhead  \hline
+
+Invariant &
+{\begin{erunning}
+inv
+other.inv
+\end{erunning}} &
+Check whether the class invariant of an object holds.
+\\ \hline
+
+Partial \newline invariant &
+{\begin{erunning}
+inv_only ("t1", "t2")
+o.inv_without ("t")
+\end{erunning}} &
+Check whether part of the class invariant holds. The check takes a list of tag names given by string constants and either just checks these tags (\e{inv_only}) or the whole invariant except for the specified tags (\e{inv_without}).
+\\ \hline
+
+Is Free &
+{\begin{erunning}
+is_free
+other.is_free
+\end{erunning}} &
+Returns whether an object is free. Free objects have no owner.
+\\ \hline
+
+Is Fresh &
+{\begin{erunning}
+is_fresh
+other.is_fresh
+\end{erunning}} &
+Returns whether an object is fresh. Fresh objects were not allocated in the pre-state.
+\\ \hline
+
+Is Open &
+{\begin{erunning}
+is_open
+other.is_open
+\end{erunning}} &
+Returns whether an object is open. Open objects might not satisfy their class invariant.
+\\ \hline
+
+Is Wrapped &
+{\begin{erunning}
+is_wrapped
+other.is_wrapped
+\end{erunning}} &
+Returns whether an object is wrapped. Wrapped objects are closed and free.
+\\ \hline
+
+Unwrapping &
+{\begin{erunning}
+unwrap
+other.unwrap
+unwrap_all (set)
+\end{erunning}} &
+Unwrap an object or a set of objects.
+\\ \hline
+
+Wrapping &
+{\begin{erunning}
+wrap
+other.wrap
+wrap_all (set)
+\end{erunning}} &
+Wrap an object or a set of objects.
+\\ \hline
+
+\end{longtable}
+

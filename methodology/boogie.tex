@@ -1,0 +1,84 @@
+%############################################################################
+\section{A Short Introduction to Boogie} \label{boogie-intro}
+%############################################################################
+
+
+Boogie is a language for verification~\cite{LEINO08}, as well as an
+automated verifier that takes programs written in the Boogie language
+as input.  \AutoProof verifies Eiffel programs by translating them
+into the Boogie language and then by calling the Boogie verifier on
+the translation. The Boogie verifier generates verification conditions
+for the input program, and supports different prover back-ends (e.g.,
+Z3 and Simplify) to discharge them.  For readers unfamiliar with
+Boogie, this section describes the essential features of the Boogie
+language used in the rest of the paper.
+
+The Boogie language offers two kinds of constructs: a simple
+imperative modular programming language---used to translate the source
+program (Eiffel, in our case)---and a specification language based on
+first-order logic---used to define specification elements
+and background logic theories needed to support complex
+specifications.
+
+Boogie's specification language is a typed first-order logic with arithmetic.
+The basic types include Booleans (\b{bool}) and mathematical (unbounded) integers (\b{int}); the type constructors support the definition of derived types.
+Line~\ref{pl1} in Figure~\ref{fig-boogie-intro-1} declares a new type \b{person}, which Boogie treats as a fresh sort for variables.
+The specification language supports the definition of global variables and constants, functions (in the sense of mathematical logic), and axioms.
+Line~\ref{pl2}, for example, declares a global constant \b{eve} of type \b{person}.
+Lines~\ref{pl3} and \ref{pl4} declare two functions \b{age} and \b{can_vote}.
+Lines~\ref{pl5} and \ref{pl6} introduce two axioms about the declared items: \b{age} is defined as \b{23} for argument \b{eve}; and \b{can_vote} is true precisely for persons whose age is greater than or equal to \b{18}.
+
+
+\begin{bfigure}[ht]{Some definitions in Boogie's specification language.}{fig-boogie-intro-1}
+#\label{pl1}#type person;
+#\label{pl2}#const eve: person;
+#\label{pl3}#function age(p: person) returns (int);
+#\label{pl4}#function can_vote(p: person) returns (bool);
+#\label{pl5}#axiom (age(eve) = 23);
+#\label{pl6}#axiom (forall p: person :: can_vote(p) <==> age(p) >= 18);
+\end{bfigure}
+
+Boogie's programming language supports the definition of procedures.
+Each procedure has a signature, which may include a specification in
+terms of preconditions (\b{requires}), postconditions
+(\b{ensures}), and frame clauses (\b{modifies}).  The
+specification clauses contain formulas in Boogie's specification
+language.  Postconditions, in addition, supports the usage of the
+\b{old} keyword to evaluate expressions in the state
+\emph{before} a procedure was called.  Modifies clauses, instead,
+define a procedure's \emph{frame}, that is the set of global variables
+the procedure may modify.  Pre- and postconditions may be marked as
+\b{free}, which prevents the generation of proof obligations
+based on them: a \b{free} assertion is assumed to hold whenever
+convenient, but need not be checked when required.
+
+Procedure implementations use standard imperative constructs
+(assignments, conditionals, loops, jumps, and procedure calls) with
+the usual semantics.  To write nondeterministic programs, Boogie's
+programming language includes the \b{havoc} command, which
+assigns a nondeterministically chosen value to its argument variables.
+To constrain the effects of \b{havoc} and to express intermediate
+verification conditions, Boogie's programming language also offers
+\b{assert} and \b{assume} statements.  Both take an
+arbitrary formula \b{F} as argument. The program state of every
+execution reaching an \b{assert F} must satisfy \b{F};
+otherwise, verification fails.  Conversely, the verification process
+can assume that \b{F} holds of the program state whenever an
+execution reaches \b{assume F}, which ``shapes'' the
+nondeterministic behavior when convenient.
+
+
+Figure~\ref{fig-boogie-intro-2} shows the specification and implementation of a procedure \b{vote} to cast a vote, demonstrating Boogie syntax.
+
+\begin{bfigure}[ht]{A Boogie procedure \b{vote}: specification and implementation.}{fig-boogie-intro-2}
+var votes: int;
+
+procedure vote(p: person);
+	requires can_vote(p);
+	ensures votes = old(votes) + 1;
+	modifies votes;
+
+implementation vote(p: person) {
+	votes := votes + 1
+}
+\end{bfigure}

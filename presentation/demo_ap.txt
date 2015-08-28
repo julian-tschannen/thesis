@@ -1,0 +1,11 @@
+- Verify whole example (no two-step verification)
+- Show code of example 
+-- board game GAME
+-- BOARD consists of SQUARES
+-- PLAYERs take turns throwing two dice
+-- Uses verified EiffelBase2: V_ARRAY, V_LIST, V_RANDOM
+- Discuss verification error of PLAYER.play
+- Use two-step verification for PLAYER.play
+- Discuss annotations:
+-- Remove “modify_field” of PLAYER.move
+-- Remove “status: creator” of PLAYER.make

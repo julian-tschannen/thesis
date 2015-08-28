@@ -1,0 +1,225 @@
+%############################################################################
+\section{Polymorphic Calls}
+\label{sec:m-polymorphic}
+%############################################################################
+
+
+The redefinition of a routine $r$ in a descendant class can \emph{strengthen} $r$'s original postcondition by adding an \e{ensure then} clause, which conjoins the postcondition in the precursor.
+The example in Figure~\ref{example-exp} illustrates a difficulty occurring when reasoning about postcondition strengthening in the presence of polymorphic types.
+The deferred (abstract) class \e{EXP} models nonnegative integer expressions and provides a routine \e{eval} to evaluate the value of an expression object; even if \e{eval} does not have an implementation in \e{EXP}, its postcondition specifies that the evaluation always yields a nonnegative value stored in attribute \e{last_value}, which is set as side effect.
+Classes \e{CONST} and \e{PLUS} respectively specialize \e{EXP} to represent integer (nonnegative) constants and addition.
+Class \e{ROOT} is a client of the other classes, and its \e{main} routine attaches an object of subclass \e{CONST} to a reference with static type \e{EXP}, thus exploiting polymorphism.
+Similar issues occur when a descendant class \emph{weakens} a some routine $r$'s precondition with an \e{require else} clause.
+
+
+\begin{figure}[!ht]
+\begin{tabular}{ll}
+
+{\begin{erunning}
+deferred class EXP
+feature
+	last_value: INTEGER
+	eval
+		deferred
+		ensure
+			last_value >= 0
+		end
+end
+ #\ # 
+ #\ # 
+ #\ # 
+ #\ # 
+\end{erunning}}
+&
+\hspace{5mm}
+{\begin{erunning}
+class PLUS inherit EXP feature 
+	left, right: EXP
+	eval do
+			left.eval; right.eval
+			last_value := left.last_value + 
+						  right.last_value
+		ensure then
+			last_value = left.last_value + 
+						 right.last_value
+		end
+invariant
+	left /= right /= Current
+end
+\end{erunning}}
+\vspace{5mm}
+\\
+{\begin{erunning}
+class CONST inherit EXP
+feature 
+	value: INTEGER
+	eval do
+			last_value := value
+		ensure then
+			last_value = value
+		end
+invariant
+	value >= 0
+end
+\end{erunning}}
+&
+\hspace{5mm}
+{\begin{erunning}
+class ROOT
+feature    
+	main
+		local
+				e: EXP
+		do
+			e := create {CONST}.make (5);
+			e.eval
+			check e.last_value = 5 end    
+		end
+end 
+\end{erunning}}
+
+\\
+
+\end{tabular}
+\caption{Nonnegative integer expressions.}\label{example-exp}
+\end{figure}
+
+The verification goal is proving that, after the invocation $e.eval$ (in class \e{ROOT}), \e{eval}'s postcondition in class \e{CONST} holds, which subsumes the \e{check} statement in the caller.
+Reasoning about the invocation only based on the static type \e{EXP} of the target \e{e} guarantees the postcondition \e{last_value >= 0}, which is however too weak to establish that \e{last_value} is exactly 5.
+
+Other approaches, such as M\"uller's~\cite{MUELLER02}, have targeted these issues in the context of Hoare logics, but they usually are unsupported by automatic program verifiers.
+In particular, with the Boogie translation of polymorphic assignment implemented in Spec\#, the assertion \e{check e.last_value = 5 end} in class \e{ROOT} can be verified only if \e{eval} is declared \emph{pure}; \e{eval} is, however, not pure.
+The Spec\# methodology selects the pre and postconditions according to static types for non-pure routines: the call \e{e.eval} only establishes \e{e.last_value >= 0}, not the stronger \e{e.last_value = 5} that follows from \e{e}'s dynamic type \e{CONST}, unless an explicit cast redefines the type \e{CONST}.
+The rest of the section describes the solution implemented in \AutoProof, which handles contracts of redefined routines.
+
+
+
+
+%============================================================================
+\subsection{Polymorphism in Boogie}
+%============================================================================
+
+The Boogie translation implemented in \AutoProof can handle polymorphism appropriately even for non-pure routines; it is based
+on a methodology for agents~\cite{NORDIO10} and on a methodology for pure routines~\cite{DARVAS07,LEINO08b}.
+The rest of the section discusses how to translate postconditions and preconditions of redefined routines in a way that accommodates polymorphism, while still supporting modular reasoning.
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Postconditions}
+%----------------------------------------------------------------------------
+
+The translation of the postcondition of a routine $r$ of class $X$ with result type $T$ (if any) relies on an auxiliary function \b{post.X.r}:
+\begin{brunning}
+function post.X.r (h1, h2: HeapType; c: ref; res: T) returns (bool);
+\end{brunning}
+which predicates over two heaps (the pre and post-states in $r$'s postcondition), a reference \b{c} to the current object, and the result \b{res}.
+$r$'s postcondition in Boogie references the function \b{post.X.r}, and includes the translation $\nabla_{post}(X.r)$ of $r$'s postcondition clause syntactically declared in class \e{X}:\footnote{The translation differs for calls to \e{Precursor} (\lstinline[language=Java]|super| in Java and \lstinline[language={[Sharp]C}]|base| in C\#).}
+\begin{brunning}
+procedure X.r (Current: ref) returns (Result: T);
+  free ensures post.X.r (Heap, old(Heap), Current, Result);
+  ensures $\nabla_{post}(X.r)$;
+\end{brunning}
+\b{post.X.r} is a \b{free ensures}, hence it is ignored when proving $r$'s implementation and is only necessary to reason about usages of $r$.
+
+The function \b{post.X.r} holds only for the type $X$; for each class $Y$ which is a descendant of $X$ (and for $X$ itself), an axiom links $r$'s postcondition in $X$ to $r$'s strengthened postcondition in $Y$:
+\begin{brunning}
+axiom (forall h1, h2: HeapType; c: ref; r: T ::
+    type_of(c) <: Y ==> (post.X.r(h1, h2, c, r) ==> #$\nabla_{post}(Y.r)$#));
+\end{brunning}
+The function \b{type_of} returns the type of a given reference; hence the postcondition predicate $post.X.r$ implies an actual postcondition $\nabla_{post}(Y.r)$ according to $c$'s dynamic type. 
+
+In addition, for each redefinition of $r$ in a descendant class $Z$, 
+the translation defines a fresh Boogie procedure $Z.r$ with 
+corresponding postcondition predicate $post.Z.r$ and axioms 
+for all of $Z$'s descendants.
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Preconditions}
+%----------------------------------------------------------------------------
+
+
+Eiffel also supports \emph{weakening of preconditions}. Therefore, the precondition
+of a routine can also depend on the dynamic type. We use a similar
+translation as for the postcondition. Given a routine $r$ of type $X$, 
+a precondition predicate is generated and used in the signature 
+of the generated Boogie procedure:
+\begin{brunning}
+function pre.X.r(h: HeapType; c: ref) returns (bool);
+\end{brunning}
+which predicates over one heap and a reference \e{c} to the current object.
+\e{r}'s precondition in Boogie references the function \b{pre.X.r}, and it includes the translation $\nabla_{pre}(X.r)$ of $r$'s precondition originally declared in class $X$:
+\begin{brunning}
+procedure X.r (Current: ref) returns (Result: T);
+	requires pre.X.r(Heap, Current);
+	free requires #$\nabla_{pre}(X.r)$#
+\end{brunning}
+Conversely to the postcondition, establishing $r$'s precondition is a responsibility of callers of $r$; clients have to establish the precondition determined by the dynamic type---captured by the function \b{pre.X.r}---, whereas the precondition originally given in $X$ is given as a \b{free requires} and is only used to prove $r$'s implementation.
+\begin{brunning}
+axiom (forall h: HeapType; c: ref ::
+		type_of(c) <: Y ==> (#$\nabla_{pre}(Y.r)$# ==> pre.X.r(h, c)));
+\end{brunning}
+To establish \b{pre.X.r}, it is enough to establish any of the clauses $\nabla_{pre}(Y.r)$.
+
+
+\begin{bfigure}[p]{Simplified Boogie translation of the Eiffel classes in Figure~\ref{example-exp}.}{fig-exp-boogie}
+function post.EXP.eval(h1, h2: HeapType; c: ref) returns (bool);
+
+procedure EXP.eval(current: ref); #\label{l:exp:boogie:a}#
+	free ensures post.EXP.eval(Heap, old(Heap), current); #\label{l:exp:boogie:k}#
+	ensures Heap[current, last_value] >= 0;
+	// other specification omitted #\label{l:exp:boogie:b}#
+
+axiom (forall h1, h2: HeapType; o: ref :: #\label{l:exp:boogie:c}#
+	type_of(o) <: EXP ==> 
+	(post.EXP.eval(h1, h2, o) ==> (h1[o, last_value] >= 0)) ); #\label{l:exp:boogie:d}#
+axiom (forall h1, h2: HeapType; o: ref :: #\label{l:exp:boogie:e}#
+	type_of(o) <: CONST ==> 
+	(post.EXP.eval(h1, h2, o) ==> h1[o, last_value] == h1[o, value]) ); #\label{l:exp:boogie:f}#
+axiom (forall h1, h2: HeapType; o: ref :: #\label{l:exp:boogie:g}#
+	type_of(o) <: PLUS ==> 
+	(post.EXP.eval(h1, h2, o) ==> (h1[o, last_value] == 
+		h1[h1[o, left], last_value] + h1[h1[o, right], last_value])) ); #\label{l:exp:boogie:h}#
+
+implementation ROOT.main (Current: ref) {
+		var e: ref;
+	entry:
+		// translation of: #\textbf{create} \{\textit{CONST}\} \textit{e.make} (5)#
+		havoc e;
+		assume Heap[e, allocated] == false;
+		Heap[e, allocated] := true;
+		assume type_of(e) == CONST; #\label{l:exp:boogie:i}#
+		call CONST.make(e, 5);
+		// translation of: #\textit{e.eval}#
+		call EXP.eval(e);
+		// translation of: #\textbf{check} \textit{e.last\_value} = 5 \textbf{end}#
+		assert Heap[e, last_value] == 5; #\label{l:exp:boogie:j}#
+		return;
+}
+\end{bfigure} 
+
+
+
+%============================================================================
+\subsection{An Example of Polymorphism with Postconditions}
+%============================================================================
+
+Figure~\ref{fig-exp-boogie} shows the essential parts of the Boogie translation of the example in Figure~\ref{example-exp}. 
+The translation of routine \e{eval} in lines \ref{l:exp:boogie:a}--\ref{l:exp:boogie:b} references the function \b{post.EXP.eval}; the axioms in lines \ref{l:exp:boogie:c}--\ref{l:exp:boogie:h} link that function to $r$'s postcondition in \e{EXP} (lines \ref{l:exp:boogie:c}--\ref{l:exp:boogie:d}) and to the additional postcondition introduced in \e{CONST} (lines \ref{l:exp:boogie:e}--\ref{l:exp:boogie:f}) and \e{PLUS} (lines \ref{l:exp:boogie:g}--\ref{l:exp:boogie:h}) for the same routine.
+
+The rest of the figure shows the translation of the client class \e{ROOT}. To verify the assertion on line~\ref{l:exp:boogie:j} the verifier will use the fact that the reference \b{e} is of type \e{CONST} (line~\ref{l:exp:boogie:i}), that the postcondition function \b{post.EXP.eval} holds thanks to the postcondition of \e{eval} (line~\ref{l:exp:boogie:k}), and the axiom generated for the specific subtype (line~\ref{l:exp:boogie:e}). With this information, the verifier can establish that the assertion holds.
+
+
+%============================================================================
+\subsection{Related Work}
+%============================================================================
+
+
+Spec\#~\cite{BARNETT05} uses dynamic postconditions for pure functions, taking the dynamic object type into account. In contrast, our approach works for functions that have side-effects and for adaptations of preconditions as well.
+
+Rapid Type Analysis~\cite{BACON96} can be used to determine all possible types of an object at a call site.
+The algorithm analyses the full system and is therefore non-modular.
+For local variables that are only available in the context of a single routine this analysis would be suitable even for modular verification.
+
+Using abstract interpretation~\cite{COUSOT77}, Rapid Atomic Type Analysis~\cite{LOGOZZO10} can be used to infer precise types of numeric variables, even for dynamically typed languages.
+

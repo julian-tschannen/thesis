@@ -1,0 +1,663 @@
+%############################################################################
+\section{Translation}
+\label{sec:ap-translation}
+%############################################################################
+
+We now give a detailed description of the translation from Eiffel to Boogie using a translation function \t and several variants of it:
+
+\begin{itemize}
+\item \ts{Name}{x}: translates the Eiffel class, type, or routine $x$ to its Boogie name. The Boogie name can be used as an identifier, variable name, or procedure name. If the class or type is generic, the translated name will include an encoding of the generics as well. Two different generic deviations of the same generic base class have therefore different names in Boogie.
+\item \ts{Type}{x}: translates the Eiffel type $x$ to its Boogie type.
+\item \ts{Body}{x}: translates the Eiffel expression $x$, which can have function calls with side effects, to a Boogie expression. Since Boogie expressions are side-effect free, side-effects of Eiffel expressions, such as routine calls to impure functions, are translated to Boogie \b{procedure} calls that are prepended to the current statement. This translation is used while translating the body of routines.
+\item \ts{Spec}{x}: translates the Eiffel expression $x$, which has to be side-effect free, to a Boogie expression. Function calls in Eiffel are translated to Boogie \b{function} calls. This translation type is used for translating any type of specification construct.
+\end{itemize}
+
+We use the general translation function \t when we do not need to distinguish between special translations, e.g. for statements.
+An introduction to Boogie is available in Section~\ref{boogie-intro}.
+
+
+%============================================================================
+\subsection{Background Theory}
+%============================================================================
+
+\AutoProof includes a background theory in all generated Boogie files. The background theory contains definitions and axioms that define the memory and framing model, as well as convenience functions and procedures for other aspects like bounded integers. We only give an overview of the full background theory here.
+
+%----------------------------------------------------------------------------
+\subsubsection{Memory model}
+%----------------------------------------------------------------------------
+
+To translate an object-oriented language, we need a model for object references and the heap. We define several types in Boogie to represent the necessary concepts:
+\begin{brunning}
+type ref;
+type Field _;
+type HeapType = <<\alpha>>[ref, Field \alpha]\alpha;
+type Type;
+\end{brunning}
+The \b{ref} type denotes object references and the \b{Field} type storage locations. We define the heap as a mapping of references and fields to the field content. The field type is generic, so we can use the content type of the field as the content type of a specific heap location. The type \b{Type} is used to model Eiffel types. As the static type of references cannot change during the lifetime of an object, we use a Boogie function to map references to types:
+\begin{brunning}
+function type_of(r: ref): Type;
+\end{brunning}
+
+The Heap is modeled using a global variable \b{Heap} of type \b{HeapType}. Using a boolean ghost field \b{allocated} we define helper procedures for two important memory operations: allocating references and updating heap values:
+\begin{brunning}[numbers=left]
+procedure allocate(t: Type) returns (r: ref);
+  modifies Heap;
+  ensures !old(Heap[r, allocated]); #\label{l:bg:fresh}#
+  ensures Heap[r, allocated];
+  ensures r != Void;
+  ensures type_of(r) == t; #\label{l:bg:type}#
+  ensures (forall<<\alpha>> f: Field \alpha$\ $:: f != allocated ==> Heap[r, f] == Default(f)); #\label{l:bg:defaults}#
+\end{brunning}
+\begin{brunning}[numbers=left,firstnumber=last]
+procedure update_heap<T>(Current: ref, field: Field T, value: T);
+  requires (Current != Void) && (Heap[Current, allocated]); #\label{l:bg:guard}#
+  modifies Heap;
+  ensures Heap == old(Heap[Current, field := value]);
+\end{brunning}
+The \b{allocate} procedure guarantees that the return values is a fresh reference (line~\ref{l:bg:fresh}) of the allocated type (line~\ref{l:bg:type}) with all fields initialized to the default value (line~\ref{l:bg:defaults}), as is the Eiffel semantics. The \b{update_heap} procedure guards against invalid uses of the heap by checking that the target reference is non-void and properly allocated (line~\ref{l:bg:guard}).
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Framing and invariant model}
+%----------------------------------------------------------------------------
+
+To support semantic collaboration, the background theory contains several built in ghost fields.
+\begin{brunning}
+const closed: Field bool;
+const owner: Field ref;
+const owns: Field (Set ref);
+const observers: Field (Set ref);
+const subjects: Field (Set ref);
+\end{brunning}
+These fields, together with a set of axioms and helper functions, are used to define the framing model. The \b{closed} field denotes if an object is in a state satisfying the invariant (\emph{closed}) or not (\emph{open}), the \b{owner} field and \b{owns} set are used to model the ownership relationship, and the \b{observers} and \b{subjects} sets are used to model the collaboration relationship.
+
+To model class invariants we use an uninterpreted function that will be linked to user-provided class invariants based on the type of references, and a global invariant function for the relation of closed objects and valid invariants:
+\begin{brunning}
+function user_inv(h: HeapType, o: ref): bool;
+function inv(h: HeapType, o: ref): bool
+	{ h[o, closed] ==> user_inv(h, o) }
+\end{brunning}
+
+The background theory contains several Boogie procedures to manipulate the ghost fields. We show the \b{wrap} procedure as an example, which is used to wrap an open object \b{o}.
+
+\begin{brunning}[numbers=left]
+procedure wrap(o: ref);
+  requires (o != Void) && (Heap[o, allocated]); #\label{l:bg:wrap:1}#
+  requires is_open(Heap, o); #\label{l:bg:wrap:2}#
+  requires writable[o, closed]; #\label{l:bg:wrap:3}#
+  requires user_inv(Heap, o); #\label{l:bg:wrap:4}#
+  requires (forall o': ref :: Heap[o, owns][o'] ==> #\label{l:bg:wrap:5}#
+						is_wrapped(Heap, o') && writable[o', owner]);
+  modifies Heap;
+  ensures (forall o': ref :: old(Heap[o, owns][o']) ==> Heap[o', owner] == o) #\label{l:bg:wrap:6}#
+  ensures is_wrapped(Heap, o) #\label{l:bg:wrap:7}#
+  ensures (forall <T> o': ref, f: Field T :: #\label{l:bg:wrap:8}#
+			!(o' == o && f == closed) && !(old(Heap[o, owns][o']) && f == owner) ==> 
+						Heap[o', f] == old(Heap[o', f]));
+\end{brunning}
+
+The procedure requires that the object \b{o} is valid (non-void and allocated, line~\ref{l:bg:wrap:1}), open (not yet wrapped, line~\ref{l:bg:wrap:2}), the ghost field \b{closed} is writable (line~\ref{l:bg:wrap:3}), the specific class invariant of the object holds (line~\ref{l:bg:wrap:4}), and that all owned objects are wrapped with their \b{owner} field being writable (line~\ref{l:bg:wrap:5}). In turn, the procedure guarantees that all objects owned by \b{o} have their \b{owner} field set to the object being wrapped (line~\ref{l:bg:wrap:6}), the object will be wrapped (line~\ref{l:bg:wrap:7}), and that only the \b{closed} field of \b{o} and the \b{owner} field of the owned objects are modified (line~\ref{l:bg:wrap:8}).
+
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Bounded integers}
+%----------------------------------------------------------------------------
+
+Since Boogie's integer type is unbounded, our background theory introduces helper functions to deal with machine integers of various sizes and conversion between them. For each bit size (8, 16, 32, 64) of both integers and naturals we define two helper functions and axiomatize them. As an example, we show the functions for \e{INTEGER_8}:
+\begin{brunning}
+function is_integer_8(i: int) returns (bool) { -128 <= i <= 127 }
+function int_to_integer_8(i: int) returns (int);
+axiom (forall i: int :: is_integer_8(i) ==> int_to_integer_8(i) == i);
+axiom (forall i: int :: is_integer_8(int_to_integer_8(i)));
+\end{brunning}
+These functions are used for overflow checks after each arithmetic operation and each time a numeric type conversion happens between integers or naturals of different bit sizes.
+
+
+%============================================================================
+\subsection{Types}
+%============================================================================
+
+Eiffel types are mapped to Boogie types as shown in Figure~\ref{fig:translation-types}.
+The basic types of Eiffel are mapped to the corresponding basic types of Boogie.
+To keep the correct semantics with respect to the bounded integers in Eiffel, \AutoProof inserts additional assertions and assumptions, as will be described later.
+Eiffel's reference types are translated to the type \b{ref}, which is defined in the background theory.
+The MML types from the base library of \EVE are all translated to specific Boogie types that are declared and axiomatized in their respective background theories.
+
+\begin{figure}[htb]
+\centering
+\begin{tabular}{lll}
+\ts{Type}{\e{BOOLEAN}}   &$ = $ \b{bool} & \\
+\ts{Type}{\e{INTEGER_X}} &$ = $ \b{int} & where $X\in\{8, 16, 32, 64\}$ \\
+\ts{Type}{\e{NATURAL_X}} &$ = $ \b{int} & where $X\in\{8, 16, 32, 64\}$ \\
+\ts{Type}{\e{REAL_X}}    &$ = $ \b{real} & where $X\in\{32, 64\}$ \\
+\ts{Type}{\e{CHARACTER_X}} &$ = $ \b{int} & where $X\in\{8, 32\}$ \\
+\end{tabular}
+
+\begin{tabular}{ll}
+\\ [-1.5ex] \hline \\ [-1.5ex]
+\ts{Type}{\e{X}}         &$ = $ \b{ref} -- where $X$ is a reference class \\
+\ts{Type}{\e{G}}         &$ = $ \b{ref} -- where $G$ is an unspecified generic type \\
+\\ [-1.5ex] \hline \\ [-1.5ex]
+\end{tabular}
+
+\begin{tabular}{ll}
+\ts{Type}{\e{MML_SET [G]}}         &$ = $ \b{Set} \ts{Type}{\e{G}}  \\
+\ts{Type}{\e{MML_SEQUENCE [G]}}    &$ = $ \b{Seq} \ts{Type}{\e{G}} \\
+\ts{Type}{\e{MML_MAP [K, V]}}      &$ = $ \b{Map} \ts{Type}{\e{K}} \ts{Type}{\e{V}} \\
+\ts{Type}{\e{MML_BAG [G]}}         &$ = $ \b{Bag} \ts{Type}{\e{G}} \\
+\ts{Type}{\e{MML_INTERVAL}}        &$ = $ \b{Set int} \\
+\ts{Type}{\e{MML_RELATION [G, H]}} &$ = $ \b{Rel} \ts{Type}{\e{G}} \ts{Type}{\e{H}} \\
+\end{tabular}
+\caption{Translation of Eiffel types to Boogie types.}
+\label{fig:translation-types}
+\end{figure}
+
+
+
+%============================================================================
+\subsection{Classes and Features}
+%============================================================================
+
+%----------------------------------------------------------------------------
+\subsubsection{Classes}
+%----------------------------------------------------------------------------
+
+The declaration of an Eiffel class---\e{class C inherit B}---is translated to the Boogie code shown in Figure~\ref{fig:translation-class-declaration}. For each class a constant value of type \b{Type} is declared. This constant is used to represent the type value of the class. An axiom is generated that models the inheritance based on Boogie's partial order operator. To express the class invariant $C_{inv}$ a function \b{$\ts{Name}{C}$.user_inv()} is generated, having the translation of the combined (\e{and}ed) class invariant as its body. Two axioms are generated that relate the specific class invariant to the global \b{user_inv} function based on the type of a reference.
+
+\begin{bfigure}[ht]{Translation of Eiffel \e{class} declarations.}{fig:translation-class-declaration}
+const unique$\ \ts{Name}{C}$: Type;
+axiom ($\ts{Name}{C}$ <:$\ \ts{Name}{B}$);
+function $\ts{Name}{C}$.user_inv() { $\ts{Spec}{C_{inv}}$ }
+axiom (forall h: HeapType, c: ref :: attached_exact(h, c,$\ \ts{Name}{C}$) ==>
+							(user_inv(h, c)==$\ts{Name}{C}$.user_inv(h, c)));
+axiom (forall h: HeapType, c: ref :: attached(h, c,$\ \ts{Name}{C}$) ==>
+							(user_inv(h, c)==>$\ts{Name}{C}$.user_inv(h, c)));
+\end{bfigure}
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Attributes}
+%----------------------------------------------------------------------------
+
+A constant in Boogie is generated for each attribute in Eiffel. This constant is used to access the heap location of the attribute. Since the name of the attribute is based on the static type, additional axioms are generated relating inherited attributes to their ancestor versions. Given an attribute declaration \e{a: T} in class \e{C} and a subclass \e{D} of \e{C}, the following Boogie code will be generated for the two attributes \e{C.a} and \e{D.a}:
+\begin{brunning}
+const $\ts{Name}{C.a}$: Field $\ts{Type}{T}$;
+const $\ts{Name}{D.a}$: Field $\ts{Type}{T}$;
+axiom $\ts{Name}{C.a}$ ==$\ \ts{Name}{D.a}$;
+\end{brunning}
+
+An additional axiom will be generated depending on the type of the attribute. Given an attribute \e{a: T} in class \e{C} an axiom enforcing a type specific function is generated:
+\begin{brunning}
+axiom (forall h: HeapType, o: ref :: attached(h, o, $\ts{Name}{C}$) ==> $\ts{TF}{T}$);
+\end{brunning}
+The type function \ts{TF}{T} is based on the type \e{T} of the attribute according to Figure~\ref{fig:type-property}. The \emph{exact} variants for reference types are used whenever \AutoProof can determine that the dynamic type and static type are identical (e.g. if \e{T} is \emph{frozen}). For integer types an axiom is generated by \AutoProof to restrict the range of the value.
+
+\begin{figure}[htb]
+\centering
+\begin{tabular}{ll}
+
+Type \e{T} & \ts{TF}{T} \\ 
+
+\hline 
+
+\e{attached T} & \b{attached(h, h[o, $\ts{Name}{C.a}$], $\ \ts{Name}{T}$)} \\
+exact \e{attached T} & \b{attached_exact(h, h[o, $\ts{Name}{C.a}$], $\ \ts{Name}{T}$)} \\
+\e{detachable T} & \b{detachable(h, h[o, $\ts{Name}{C.a}$], $\ \ts{Name}{T}$)} \\
+exact \e{detachable T} & \b{detachable_exact(h, h[o, $\ts{Name}{C.a}$], $\ \ts{Name}{T}$)} \\
+\e{INTEGER_X} & \b{is_integer_X(h[o, $\ \ts{Name}{C.a}$])} \\
+\e{NATURAL_X} & \b{is_natural_X(h[o, $\ \ts{Name}{C.a}$])} \\
+\e{CHARACTER_X} & \b{is_integer_X(h[o, $\ \ts{Name}{C.a}$])} \\
+
+\end{tabular}
+\caption{Type property functions.}
+\label{fig:type-property}
+\end{figure}
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Routines}
+%----------------------------------------------------------------------------
+
+Routines are translated in two parts: the signature is translated to a Boogie \b{procedure} and the routine body to a Boogie \b{implementation}. The translation of a general Eiffel routine $r$ in a class $C$ is shown in Figure~\ref{fig:translation-routine}.
+
+\begin{figure}[ht]
+\centering
+
+\begin{tabular}{lll}
+$\t($
+&
+{\begin{erunning}
+r ($a_1$: $T_1$; ...; $a_n$: $T_n$): $T_{res}$
+	require $r_{pre}$ do $B$ 
+	ensure $r_{post}$ end
+\end{erunning}}
+&
+$)=$
+\end{tabular}
+
+\begin{brunning}[numbers=left]
+procedure$\ \ts{Name}{C.r}$(Current: ref, $a_1$: $\ts{Type}{T_1}$, ..., $a_n$: $\ts{Type}{T_n}$)
+			returns (Result: $\ts{Type}{T_{res}}$ where $\ts{TF}{T_{res}}$); #\label{l:routine:0}#
+	free requires attached_exact(Heap, Current,$\ \ts{Name}{C}$); #\label{l:routine:1}#
+	free requires $\ts{TF}{T_1}$ ... $\ts{TF}{T_n}$; #\label{l:routine:2}#
+	modifies Heap;
+	requires $\ts{Spec}{r_{pre}}$ #\label{l:routine:3}#
+	ensures $\ts{Spec}{r_{post}}$ #\label{l:routine:4}#
+	requires Frame#\##Subset( #\label{l:routine:5}#
+				modify.$\ts{Name}{C.r}$(Heap, Current, $a_1$, ..., $a_n$), writable);
+	free ensures same_outside(old(Heap), Heap, #\label{l:routine:6}#
+				modify.$\ts{Name}{C.r}$(old(Heap), Current, $a_1$, ..., $a_n$));
+\end{brunning}
+\begin{brunning}[numbers=left,firstnumber=last]
+implementation$\ \ts{Name}{C.r}$(Current: ref, $a_1$: $\ts{Type}{T_1}$, ..., 
+				$a_n$: $\ts{Type}{T_n}$) returns (Result: $\ts{Type}{T_{res}}$)
+{ $\tr{B}$ } #\label{l:routine:7}#
+\end{brunning}
+\caption{Translation of Eiffel routines.}
+\label{fig:translation-routine}
+\end{figure}
+
+We model the object-oriented Eiffel in procedural Boogie by adding the \e{Current} object as the first argument to the procedure. For the target object and all routine arguments we model the Eiffel semantics by adding free preconditions using the type property functions (lines~\ref{l:routine:1} and~\ref{l:routine:2}). The type property of the result is also added using the Boogie \b{where} clause (line~\ref{l:routine:0}).
+Each of the routine's pre- and postconditions are translated directly to a \b{requires} or \b{ensures} clause (lines~\ref{l:routine:3} and~\ref{l:routine:4}). For each routine a Boogie function is generated to represent the frame of the routine. The function expresses which heap locations the routine is allowed to change. We use this function in the signature of the routine to express the frame condition in two parts: (1) the locations the routine is allowed to change needs to be writable (line~\ref{l:routine:5}) and (2) all locations outside of the routine's frame remain unchanged after the routine exits (line~\ref{l:routine:6}). An implementation block is generated for the body of the routine with the same signature as the corresponding procedure and the translation of the routine's body as the actual implementation (line~\ref{l:routine:7}).
+
+Figure~\ref{fig:translation-routine} shows the general translation of routines. There are several special cases for specific types of routines. \emph{Creation procedures} have an additional precondition that all attributes of the class are set to their default value. Finally, a Boogie \b{function} is created for \emph{side-effect free functions} that can be used in specifications:
+\begin{brunning}
+function fun.$\ts{Name}{C.r}$(heap: HeapType; current: ref, 
+		$a_1$: $\ts{Type}{T_1}$, ..., $a_n$: $\ts{Type}{T_n}$) returns ($\ts{Type}{T_{res}}$);
+axiom (forall h: HeapType, c: ref, $a_1$: $\ts{Type}{T_1}$, ..., $a_n$ :: 
+		$\ts{Spec}{r_{pre}}$ ==> (fun.$\ts{Name}{C.r}$(h, c, $a_1$, ..., $a_n$) == $\ts{Spec}{r_{post}}$));
+\end{brunning}
+
+
+%============================================================================
+\subsection{Instructions}
+%============================================================================
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Sequential composition}
+%----------------------------------------------------------------------------
+
+Sequential statements in Eiffel are translated to sequential statements in Boogie: 
+\tr{I_1; I_2} $ = $ \tr{I_1}; \tr{I_2}.
+
+%----------------------------------------------------------------------------
+\subsubsection{Conditional}
+%----------------------------------------------------------------------------
+
+Although Boogie offers a cascading \b{if} statement\footnote{In Boogie you can write \b{if ($c_1$) \{ ... \} else if ($c_2$) \{ ... \} else \{ ... \}}.} we have to use the nested conditionals for the translation from Eiffel because the condition in a Boogie \b{if} statement cannot have a side-effect. The \e{elseif} condition in Eiffel can be a function call with side-effects though, so we have to be able to call a Boogie procedure before evaluation each cascading condition. The translation for conditionals is therefore as follows:
+
+\begin{center}
+\begin{tabular}{llll}
+$\t($
+&
+{\begin{erunning}
+if $c_1$ then $B_1$
+elseif $c_2$ then $B_2$
+else $B_3$
+end
+\end{erunning}}
+&
+$)=$
+&
+{\begin{brunning}
+if ($\ts{Body}{c_1}$) { $\tr{B_1}$ }
+else {
+	if ($\ts{Body}{c_2}$) { $\tr{B_2}$ }
+	else { $\tr{B_3}$ }
+}
+\end{brunning}}
+\end{tabular}
+\end{center}
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Loop}
+%----------------------------------------------------------------------------
+
+The translation of loops is among the more complex. Loops can have extensive specifications similar to routines: loop invariants, loop variant, and loop modifies clauses. The translation of a loop with exit condition $c$, loop body $L$, loop invariants $i_1, ... i_n$, and loop variant $v$
+%and modifies clause $m$
+is given in Figure~\ref{fig:translation-loops}.
+
+\begin{figure}[!hbt]
+\begin{tabular}{lllll}
+$\t($
+&
+{\begin{erunning}
+from $A$
+invariant
+	$i_1$
+	....
+	$i_n$
+until $c$
+loop $L$
+variant $v$
+end
+\end{erunning}}
+&
+$)=$
+&
+\hspace{5pt}
+{\begin{brunning}[numbers=left,numbersep=5pt]
+  $\tr{A}$;
+head:
+  assert $\ts{Spec}{i_1}$; #\label{l:loop-invar-start}#
+  ....
+  assert $\ts{Spec}{i_n}$; #\label{l:loop-invar-end}#
+  goto body, end;
+\end{brunning}}
+&
+\hspace{12pt}
+{\begin{brunning}[numbers=left,firstnumber=last,numbersep=5pt]
+body:
+  assume !($\ts{Spec}{c}$); #\label{l:loop-cond-neg}#
+  $v_{old}$ := $\ts{Spec}{v}$; #\label{l:loop-var-old}#
+  $\tr{L}$;
+  assert 0 <= $v_{old}$; #\label{l:loop-var-bounded}#
+  assert $\ \ts{Spec}{v}$ < $v_{old}$; #\label{l:loop-var-decreases}#
+  goto head;
+end:
+  assume $\ts{Spec}{c}$; #\label{l:loop-cond}#
+\end{brunning}}
+\end{tabular}
+\caption{Translation of Eiffel \e{from}-loops.}
+\label{fig:translation-loops}
+\end{figure}
+
+The loop structure is translated into three labeled blocks \b{head}, \b{body}, and \b{end}. The \b{head} contains the loop invariants (Lines~\ref{l:loop-invar-start} to~\ref{l:loop-invar-end}), which will be checked on entry and after every iteration. The loop invariants use the side-effect free expression translation $\ts{Spec}{x}$, so only pure functions are allowed in loop invariants (as with other specifications).
+The last statement of the head block is a non-deterministic jump instruction, jumping both to the \b{body} and \b{end} blocks. The first statement in the \b{body} block is an \b{assume} statement with the negated exit condition (Line~\ref{l:loop-cond-neg}). Since Eiffel loops use an \e{until} exit condition, the negation signifies loop continuation. The second statement in the loop evaluates the loop variant before the loop body is executed and stores it in a local variable (Line~\ref{l:loop-var-old}). Next follows the translation of the loop body and checking of the loop variant. The first assertion checks that the loop variant is bounded (Line~\ref{l:loop-var-bounded}) and the second assertion checks that the loop variant after execution of the body is strictly smaller then before (Line~\ref{l:loop-var-decreases}). The last statement of the loop body jumps back to the loop head where the loop invariant is checked again. The \b{end} block assumes the exit condition.
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Inspect}
+%----------------------------------------------------------------------------
+
+The Eiffel \e{inspect} statement is a \emph{switch}-statement on integer values. Each individual case is defined by a statically defined continuous interval. The compiler enforces that the individual intervals are not overlapping.
+
+\begin{figure}[!hbt]
+\begin{tabular}{lllll}
+$\t($
+&
+{\begin{erunning}
+inspect $v$
+when $l_1$..$u_1$
+	then $B_1$
+....
+when $l_n$..$u_n$
+	then $B_n$
+else $B_0$
+end
+\end{erunning}}
+&
+$)=$
+&
+{\begin{brunning}[numbers=left,numbersep=5pt,]
+  s := $\ts{Body}{v}$
+  goto case_else, #\label{l:inspect-goto}#
+    case_1, ...,
+    case_n;
+case_1:
+  assume $l_1$ <= s <= $u_1$; #\label{l:inspect-interval}#
+  $\tr{B_1}$
+  goto end;
+  ....
+\end{brunning}}
+&
+\hspace{5pt}
+{\begin{brunning}[numbers=left,firstnumber=last,numbersep=5pt,]
+case_n:
+  assume $l_n$ <= s <= $u_n$;
+  $\tr{B_n}$
+  goto end;
+case_else:
+  assume !($l_1$ <= s <= $u_1$) && #\label{l:inspect-end}#
+    ... && !($l_n$ <= s <= $u_n$);
+  $\tr{B_0}$
+  goto end;
+end:
+\end{brunning}}
+\end{tabular}
+\caption{Translation of Eiffel \e{inspect}-statements.}
+\label{fig:translation-inspect}
+\end{figure}
+
+The translation to Boogie, shown in Figure~\ref{fig:translation-inspect}, works by having a labeled block for each individual case and the \e{else} branch. After evaluating the inspect value the goto on line~\ref{l:inspect-goto} jumps to all labeled blocks nondeterministically. Each block assumes the condition that the inspect value is in this particular interval (e.g. line~\ref{l:inspect-interval}), followed by the translation of the block body and a jump to the \b{end} label. The block of the else-branch assumes the value is outside all other intervals (line~\ref{l:inspect-end}).
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Assignment}
+%----------------------------------------------------------------------------
+
+The translation of assignments depend on the type of the target. An assignment target in Eiffel can only be an attribute of the current object, a local variable, or the special local variable \e{Result} in functions. The \e{Result} variable behaves in this context like a local variable, so we can distinguish two cases in total. Assuming the assignment takes place in a routine of class $C$, the translations are as follows:
+
+\begin{center}
+\tr{\e{o := v}} $=$ 
+$\begin{cases}
+\b{$\ts{Name}{o}$ := $\ts{Body}{v}$;} & (L) \\
+\b{update_heap(Current,$\ \ts{Name}{C.o}$,$\ \ts{Body}{v}$);} & (A) \\
+\end{cases}$
+\end{center}
+
+We can use the direct assignment to local variables in Boogie for local variables ($L$). For attributes --- case $A$ ---, we use the procedure \b{update_heap} from the background theory. The preconditions of \b{update_heap} serves as a validity checks for updates and the postcondition describes the effect of the assignment on the heap.
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Call}
+%----------------------------------------------------------------------------
+
+Call statements in Eiffel can only be procedure calls, as it is not allowed to call a function and ignore the return value. Given a call to procedure $p$ on object $o$ of type $T$, the translation to Boogie is:
+
+\begin{center}
+\tr{\e{o.p ($a_1$, ..., $a_n$)}} $=$ \b{call$\ \ts{Name}{T.p}$($\ts{Body}{o}$, $\ts{Body}{a_1}$, ..., $\ts{Body}{a_n}$);}
+\end{center}
+
+The translation is straightforward: using the type $T$ and procedure name $p$ we generate the name of the Boogie procedure and translate all arguments $a_i$ including the target object $o$.
+
+%----------------------------------------------------------------------------
+\subsubsection{Creation}
+%----------------------------------------------------------------------------
+
+Object creation can be broken down to allocating the object, calling the creation procedure, and attaching the newly created object to its target. Creating an object $o$ of type $T$ using creation procedure $p$ is therefore translated as follows:
+
+\begin{center}
+\begin{tabular}{l}
+\tr{\e{create o.p ($a_1$, ..., $a_n$)}} $=$ \\
+{\begin{brunning}
+call l := allocate($\ts{Name}{T}$);
+call create.$\ts{Name}{T.p}$(l, $\ts{Body}{a_1}$, ..., $\ts{Body}{a_n}$);
+$\tr{o := l}$
+\end{brunning}}
+\end{tabular}
+\end{center}
+
+First, a new reference of the correct type is allocated using the \b{allocate} procedure introduced in the background theory. This fresh reference is assigned to a local variable $l$. Then, the creation procedure is called using the naming convention of prepending \emph{create} to the translated name of the creation procedure. At the end, the local variable is assigned to the target entity using the translation previously discussed for assignment statements.
+
+%----------------------------------------------------------------------------
+\subsubsection{Check}
+%----------------------------------------------------------------------------
+
+Check instructions are translated to Boogie's \b{assert} statement. For each individual check expression an assert statement is generated. There is one special case: when the \emph{tag} of the check expression is \emph{assume}, \AutoProof will generate a Boogie \b{assume} statement instead. This allows the user to insert regular Eiffel expressions as assumptions in the Boogie code. Recently, Eiffel has introduced the \emph{guard} instruction, which is a check instruction that has a body. The idea of the guard instruction is a check instruction that will always be executed, no matter what the contract execution settings are. Since in Boogie there is no such thing as a disabled contract-check, we translate the guard instruction in the same way as the check instruction. The detailed translations are as follows:
+
+\begin{center}
+\begin{tabular}{ll}
+\tr{\e{check tag: e then B end}} & $=$ \tr{\e{check tag: e end}}$;$ \tr{B} \\
+\tr{\e{check tag: e end}} & $=$ 
+$\begin{cases}
+\b{assert$\ \ts{Body}{e}$;} & \text{if tag}\ne\text{assume} \\
+\b{assume$\ \ts{Body}{e}$;} & \text{if tag}=\text{assume} \\
+\end{cases}$ \\
+\end{tabular}
+\end{center}
+
+
+
+
+%============================================================================
+\subsection{Expressions}
+%============================================================================
+
+Several aspects of translating expressions depend on the expression appearing in a specification or an executable statement.
+\begin{itemize}
+\item
+\emph{Side effects}: when an expression contains side effects (object creation, routine calls) we translate the side effect as additional Boogie instruction that will be prepended to the location of the currently translated expression. This only works for expressions in the routine body though, if an expression with a side-effect appears in a specification we report this as invalid input.
+\item
+\emph{Safety checks}: safety checks enforce the language semantics, for example overflow checks or checking that a target is attached. When an expression in a body triggers a safety check, the check is prepended to the current location as an assert instruction. During the translation of specifications such as pre- or postconditions, safety checks are added as implicit specifications of the same specification type.
+\item
+When expressions are translated with either the \ts{Body}{} or \ts{Spec}{} functions, its subexpressions typically use the same translator function. We only distinguish between the two in the description of expression translations when necessary and otherwise use the general translation function \t.
+\end{itemize}
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Entity mapping}
+%----------------------------------------------------------------------------
+
+In the translation of expressions we use a mapping function for special entities. For example the Eiffel \e{Current} entity inside a routine body needs to be translated to \b{Current} (the name of the argument of the Boogie procedure), whereas inside the axiom for the class invariant the translation needs to be \b{c} (the bound variable of the axiom's quantifier representing the \e{Current} object). A mapping is not only necessary for Eiffel entities but also for the global \b{Heap} variable and the prestate variable \b{old(Heap)} in Boogie, which, depending on the translation context, might also be translated to a bound variable of a quantified expression. In the remainder of this section we use the mapping function \m to translate an entity to the context-dependent name in Boogie.
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Access}
+%----------------------------------------------------------------------------
+
+All local entities need to use the mapping function \m for the translation to Boogie.
+\begin{center}
+\begin{tabular}{ll}
+\tr{\e{Current}} & $=$ \map{\e{Current}} \\
+\tr{\e{Result}} & $=$ \map{\e{Result}} \\
+\tr{\e{l}} & $=$ \map{l}, where $l$ is local variable \\
+\tr{\e{a}} & $=$ \map{a}, where $a$ is an argument \\
+\end{tabular}
+\end{center}
+
+The access to an attribute is translated as an access to the heap. An unqualified access to an attribute \e{a} is translated as if the access is qualified using \e{Current.a}. The translation of an attribute access \e{o.a}, where \e{a} is an attribute of an object \e{o} of type \e{T}, is the following:
+\begin{center}
+\tr{\e{o.a}} $=$ $\map{\b{Heap}}$[$\tr{o}$, $\ts{Name}{T.a}$]
+\end{center}
+The \b{Heap} name depends on the context of the translation and therefore uses the mapping function \m.
+
+%----------------------------------------------------------------------------
+\subsubsection{Constants}
+%----------------------------------------------------------------------------
+
+Constants of basic types in Eiffel---booleans, integers, and floating points---are translated directly to their Boogie counterpart. Characters are translated using their integer character code and the Eiffel \e{Void} value is translated to its counterpart defined in the background theory.
+\begin{center}
+\begin{tabular}{ll}
+\tr{\e{True}} & $=$ \b{true} \\
+\tr{\e{False}} & $=$ \b{false} \\
+\tr{\e{x}} & $=$ \b{x}, where \e{x} is an integer \\
+\tr{\e{'x'}} & $=$ \b{y}, where \b{y} is the character code of \e{'x'} \\
+\tr{\e{x.y}} & $=$ \b{x.y}, where \e{x.y} is a floating point value \\
+\tr{\e{Void}} & $=$ \b{Void} \\
+\end{tabular}
+\end{center}
+
+%----------------------------------------------------------------------------
+\subsubsection{Operations}
+%----------------------------------------------------------------------------
+
+For operations of basic types we reuse the corresponding Boogie operations.
+\begin{itemize}
+\item
+The Eiffel boolean operations \e{not}, \e{and}, \e{or}, \e{xor}, and \e{implies} are translated to \b{!}, \b{\&\&}, \b{||}, \b{!=}, and \b{==>}, respectively.
+\item
+The Eiffel integer operations \e{+}, \e{-}, \e{*}, \e{//} (quotient of integer division), and \e{\\\\} (remainder of integer division) are translated to \b{+}, \b{-}, \b{*}, \b{div}, and \b{mod}, respectively. Safety checks are added to ensure the result is in the bounds of the machine representation when overflow checks are enabled.
+\item
+The Eiffel floating point operations \e{+}, \e{-}, \e{*}, and \e{/} are translated to their direct equivalents.
+\item
+The Eiffel comparison operations on integers and floating point values \e{=}, \e{/=}, \e{<}, \e{>}, \e{<=}, and \e{>=} are translated to their direct equivalents.
+\item
+The Eiffel comparison operations on object references \e{=} and \e{/=} are translated to their direct equivalents.
+\end{itemize}
+
+One can also define custom prefix or infix operators in Eiffel, internally represented as routine calls. Their translation uses a call to the routine implementing the operation.
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Function calls}
+%----------------------------------------------------------------------------
+
+The translation of a function call \e{o.f ($a_1$, ..., $a_n$)} where \e{o} is of type \e{T} is different in the body of a routine or the specification. If the call appears in the body of a routine, it is replaced with a fresh local variable; a side effect is created that calls the function and assigns the result to the fresh variable. The translation of the call is therefore:
+\begin{center}
+\ts{Body}{\e{o.f ($a_1$, ..., $a_n$)}} $=$ \b{l}, where \b{l} is a fresh local variable
+\end{center}
+And the created side effect is:
+\begin{center}
+\b{call l := $\ \ts{Name}{T.f}$($\ts{Body}{o}$, $\ts{Body}{a_1}$, ..., $\ts{Body}{a_n}$);}
+\end{center}
+
+If the call appears in a specification construct, the function needs to be side-effect free (otherwise an invalid input violation will be triggered), and there exists a functional representation of the routine. We use the functional representation in the translation of the call:
+\begin{center}
+\ts{Spec}{\e{o.f ($a_1$, ..., $a_n$)}} $=$ \b{fun.$\ts{Name}{T.f}$($\ts{Spec}{o}$, $\ts{Spec}{a_1}$, ..., $\ts{Spec}{a_n}$)};
+\end{center}
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Nested expression}
+%----------------------------------------------------------------------------
+
+For all nested expressions \e{a.b}, where \e{a} is a reference type, a safety check \b{assert$\ \tr{\text{\ttfamily a}}\ $!= Void} is added to ensure that the reference \e{a} is attached to an object.
+
+%----------------------------------------------------------------------------
+\subsubsection{Creation expression}
+%----------------------------------------------------------------------------
+
+The creation of an object is a side-effect, therefore, this type of expression is only allowed in the body of a routine. We introduce a fresh local variable \e{l} that is used to translate the creation expression like a creation instruction on \e{l}:
+\begin{center}
+\tr{\e{create \{T\}.make ($a_1$, ..., $a_n$)}} $=$ 
+$\begin{cases}
+\ts{Body}{\e{l}} & \text{in body} \\
+\text{error} & \text{in specification} \\
+\end{cases}$
+\end{center}
+In addition the following side effect is created:
+\begin{center}
+\ts{Body}{\e{create l.make ($a_1$, ..., $a_n$)}}.
+\end{center}
+
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Conditional expression}
+%----------------------------------------------------------------------------
+
+Eiffel's conditional expression can be directly translated to Boogie's conditional expression:
+\begin{center}
+\tr{\e{if$\ c\ $then$\ e_1\ $else$\ e_2\ $}} $=$ 
+\b{if ($\tr{c_1}$) \{  $\tr{e_1}$ \} else \{ $\tr{e_2}$ \}}
+\end{center}
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Old expression}
+%----------------------------------------------------------------------------
+
+To translate \e{old} expressions we take advantage of the entity mapping for the Boogie \b{Heap} variable. The regular heap mapping is replaced with the prestate value \b{old(Heap)} for the translation of the subexpression.
+\begin{center}
+\tr{\e{old e}} $=$ $\tr{e}\langle\map{\b{Heap}} := \map{\b{old(Heap)}}\rangle$
+\end{center}
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Across expression}
+%----------------------------------------------------------------------------
+
+Eiffel's loop expressions (\e{across..all} / \e{across..some}) are translated to universal and existential quantifiers in Boogie. The translation follows a general scheme, but the detailed translation depends on the container type of the iteration. We show the translation of a universal quantification over integer intervals and existential quantification over container types containing objects as an example.
+\begin{center}
+\begin{tabular}{ll}
+\e{across l\|..\|u as i all $f(i)$ end} & $=$ \b{forall k: int :: l <= k <= u ==> $\tr{f(k)}$} \\
+\e{across c as o some $f(o)$ end} & $=$ \b{exists k: ref :: k $\in$ set(c) && $\tr{f(k)}$}
+\end{tabular}
+\end{center}
+The across expression over integer intervals uses the interval boundaries to restrict a bound integer variable in a Boogie quantifier. Across expressions over container types use a set representation of the container contents to restrict a bound reference variable. Access to the iteration cursor is translated by accessing the bound variable in both cases.
+
+%----------------------------------------------------------------------------
+\subsubsection{Object test}
+%----------------------------------------------------------------------------
+
+To check if an entity conforms to a specific type at runtime, Eiffel offers the object test.
+In the translation to Boogie, we use the \b{type_of} function defined in the background theory and the partial order operator \b{<:} to express this check.
+\begin{center}
+\tr{\e{attached \{$T$\}$\ e$}} $=$ \b{o != Void && type_of($\tr{o}$)$\ $<:$\ \ts{Name}{T}$}
+\end{center}
+
+

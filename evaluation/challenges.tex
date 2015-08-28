@@ -1,0 +1,524 @@
+%############################################################################
+\section{Verification Challenges}
+\label{sec:eval-challenges}
+%############################################################################
+
+\emph{For better or worse, benchmarks shape a field}~\cite{PATTERSON12}.
+Patterson's compelling analysis of the coming of age of computer architecture seems to fit the progress of formal software verification too -- possibly with a couple-of-decade time shift.
+As verification techniques left the realm of pure theory and became implementable and usable, they often reported incomparable results: different tools that work on different languages and solve different problems (such as extended static checking, functional correctness, shape analysis, and so on).
+
+Verification competitions and challenges~\cite{KLEBANOV11,BORMER11,FILLIATRE12,HUISMAN12} can help in this regard: by providing benchmarks for verification techniques and tools, they help assess progress, compare different approaches, and reward incremental, yet practically relevant, advancements.
+Hopefully, this will also lead to an outcome similar to computer architecture's: \emph{when a field has good benchmarks, we settle debates and the field makes rapid progress}~\cite{PATTERSON12}.
+
+This section presents in detail the capabilities of \AutoProof to solve several problems from verification competitions. We have selected problems from different verification competitions highlighting various aspects of using \AutoProof:
+\begin{itemize}
+\item \emph{Longest Common Prefix (LCP)}~\cite{HUISMAN12}: This problem was given at the FM 2012 verification challenge; we use it to discuss various aspects of \AutoProof like the use of quantifiers and handling of overflows.
+%(array algorithm, overflow, client verification)
+
+\item \emph{Tree Max}~\cite{BORMER11}: A problem of the COST 2011 competition; its difficulty lies in the need to model the linked structure (using ownership in the case of \AutoProof), specifying a global property over the structure, and proving termination of recursion.
+%(termination of recursion, ownership, linked structure, MML for modelling)
+
+\item \emph{Sum and Max}~\cite{KLEBANOV11}: This example from the VSTTE 2010 competition highlights the use of non-linear arithmetic and weak purity.
+%(non-linear arithmetic, framing+fresh objects)
+
+\item \emph{Two-way sort}~\cite{FILLIATRE12}: With the two-way sort algorithm from the VSTTE 2012 competition we show how inlining of helper routines can significantly reduce the annotation burden and how ghost functions can be used in specifications.
+%(inlining, functional ghost functions)
+
+\end{itemize}
+
+
+%============================================================================
+\subsection{Longest Common Prefix} \label{sec:eval-challenges:lcp}
+%============================================================================
+
+The first challenge is a \emph{longest common prefix} algorithm: given an array \e{a} and two indices \e{x} and \e{y} within its bounds, determine the length of the longest common prefix starting at positions \e{x} and \e{y} (that is the length of the maximal subarrays from \e{x} and \e{y}). 
+Consider, for example, the integer array $\ll 1, 2, 3, 4, 1, 2, 3 \gg$ and the indices\footnote{We assume arrays numbered from one, as is the norm in Eiffel.} 1 and 5 within it: the longest common prefix is the sequence $\ll 1, 2, 3 \gg$ of length 3. 
+For the same array, the longest common prefix for indices 1 and 3 is the empty sequence because the elements at positions 1 and 3 differ; and the longest common prefix for indices 1 and 1 is obviously the whole array (of length 7).
+
+Figure~\ref{fig:code:lcp} shows an Eiffel implementation of the longest common prefix algorithm as a routine \e{lcp} fully annotated with precondition (\e{require}), postcondition (\e{ensure}), loop \e{invariant} and loop \e{variant} (also called ``ranking function'').
+The contracts consist of implicitly conjoined assertions; each assertion may have a label, such as \e{no_overflow} on line~\ref{l:lcp:pre_overflow}.
+\AutoProof can automatically verify this implementation against its specification.
+Specifically, it proves that, for inputs satisfying the precondition, the postcondition holds when the routine terminates, the loop invariant is inductive, the loop terminates, all array accesses are valid, and there are no integer overflows. 
+We now look into these aspects in detail.
+
+\begin{efigure}[!ht]{Implementation of the \emph{lcp} challenge of FM 2012.}{fig:code:lcp}
+lcp (a: ARRAY [G]; x, y: INTEGER): INTEGER
+		-- Length of the longest common prefix of a[x..] and a[y..].
+	require
+		x_in_range: 1 <= x and x <= a.count
+		y_in_range: 1 <= y and y <= a.count
+		no_overflow: a.count < {INTEGER}.max_value #\label{l:lcp:pre_overflow}#
+	do
+		from Result := 0
+		invariant
+			end_in_range_1: x + Result <= a.count + 1
+			end_in_range_2: y + Result <= a.count + 1
+			is_common: across 0 |..| (Result-1) as i all a[x+i] = a[y+i] end
+		until #\label{l:lcp:until_start}#
+			x + Result = a.count + 1 or else
+			y + Result = a.count + 1 or else
+			a[x + Result] /= a[y + Result] #\label{l:lcp:until_end}#
+		loop Result := Result + 1
+		variant a.count - Result + 1 #\label{l:lcp:variant}#
+		end
+	ensure
+		end_in_range_1: x + Result <= a.count + 1
+		end_in_range_2: y + Result <= a.count + 1
+		is_common: across 0 |..| (Result-1) as i all a[x+i] = a[y+i] end
+		longest_prefix: (x + Result = a.count + 1) or else
+						(y + Result = a.count + 1) or else
+						(a[x + Result] /= a[y + Result])
+	end
+\end{efigure}
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Functional Correctness}
+%----------------------------------------------------------------------------
+
+The postcondition specifies the functional correctness of \e{lcp} by describing four characterizing properties that the returned integer \e{Result} must satisfy to represent correct output:
+\begin{itemize}
+\item
+\e{end_in_range_1}: the output \e{Result} defines a valid subarray at \e{x}.
+
+\item
+\e{end_in_range_2}: the output \e{Result} defines a valid subarray at \e{y}.
+
+\item
+\e{is_common}: the two subarrays \e{a[x:x+Result-1]} and \e{a[y:y+Result-1]} of length \e{Result} starting at \e{x} and \e{y} are pairwise identical.
+This postcondition uses Eiffel's \e{across..all} syntax equivalent to the universal quantification $\forall i \in [0..\text{\e{Result - 1}}]: a[x+i] = a[y+i]$ over the finite integer range $[0..\text{\e{Result - 1}}]$.
+
+\item
+\e{longest_prefix}: the two subarrays of length \e{Result} starting at \e{x} and \e{y} are maximal; that is, either one of them runs until \e{a}'s end or the next pair of characters after the subarrays differ.
+This postcondition uses Eiffel's \e{or else} short-circuited disjunction.
+\end{itemize}
+
+The specification is completed by the loop invariant, which is identical to the first three components of the postcondition, and necessary to establish them.
+Postcondition \e{longest_prefix} follows from the exit conditions on lines~\ref{l:lcp:until_start}--\ref{l:lcp:until_end}.
+Notice the peculiar structure of Eiffel loops: the \e{from} clauses is evaluated once, as if it were regular code appearing before the loop (it is just syntactic sugar); the exit condition in the \e{until} clause is evaluated before every iteration; correspondingly, the loop body (\e{loop} clause) may be executed zero times or more.
+
+Our initially unsuccessful attempts at verifying \e{lcp} prompted us to introduce an improvement in the Boogie translation which is more amenable to automated reasoning with Boogie.
+The original translation rendered \e{is_common} roughly as follows:
+
+\begin{brunning}
+forall i: int :: (0 <= i && i <= Result-1) ==> 
+  (Heap[a, x+i] == Heap[a, y+i])
+\end{brunning}
+where \b{Heap} is a mapping representing fields allocated in the heap.
+Boogie cannot establish that this assertion implies the translation of \e{is_common}, even if the two assertions are identical in Eiffel (and hence in Boogie).
+The problem traced back to using the arithmetic operation \e{+} to adding a logic variable and a global variable (the problem does not occur when we add a variable to a numeric constant).
+We solved the problem by introducing Boogie logic functions wrapping arithmetic operations within the scope of quantifiers, such as
+\begin{brunning}
+function add(a, b: int): int { a + b }
+\end{brunning}
+for addition.
+The Boogie translation of the loop invariant \e{is_common} simply becomes 
+\begin{brunning}
+forall i: int :: (0 <= i && i <= Result-1) ==> 
+  (Heap[a, add(x, i)] == Heap[a, add(y, i)])
+\end{brunning}
+which Boogie can reason about without difficulties.
+
+
+This trick does not affect the semantics of the translation or what properties can be expressed, but was necessary to accommodate a peculiarity of Boogie's behavior, namely that instantiation triggers cannot include interpreted symbols like the plus sign~\cite{LEINO09}.
+This is a recurring scenario for tool developers whose implementations depend on others' tools.
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Framing}
+%----------------------------------------------------------------------------
+
+\AutoProof uses sensible defaults for framing specifications. The default for functions (routines with a return value) is \emph{weak purity}~\cite{NAUMANN05}. The \e{lcp} function does not modify any global variables nor allocates new objects and is therefore (strongly) \emph{pure}. \AutoProof checks this, and would report violations as verification errors.
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Array Accesses}
+%----------------------------------------------------------------------------
+
+Using the precondition and the loop invariants which restrict the range of the two index variables to always be in the range of the array, \AutoProof also verifies that all array accesses are within \e{a}'s bounds.
+This entails, in particular, that predicates involving arrays used in the specification are well-formed; the loop's exit condition, for example, evaluates the last disjunct only if the first two evaluate to false (\e{or else} is short-circuited), which implies that \e{x + Result} and \e{y + Result} are in bounds.
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Integer Overflows}
+%----------------------------------------------------------------------------
+
+\AutoProof has an option to verify that no arithmetic operations may overflow.
+Preconditions \e{x_in_range} and \e{y_in_range} specify that \e{x} and \e{y} are in bounds, but this is not enough to guarantee that no overflow occurs: the index of the last element of an array with size the largest machine integer \e{max_value} is the value \e{1 + max_value} (array indexing starts at 1 in Eiffel), which produces an overflow.
+Thus, precondition \e{no_overflow} restricts the size of the array to less than the maximum integer value.
+Under this additional precondition, \AutoProof verifies that there are no integer overflows.
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Termination}
+%----------------------------------------------------------------------------
+
+\AutoProof uses the loop variant on line~\ref{l:lcp:variant} to prove termination of the loop.
+It also checks that the variant is a valid variant, that is it decreases after every loop iteration and has a lower bound (determined in this case by the size of the array \e{a.count}).
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Clients}
+%----------------------------------------------------------------------------
+
+In addition to verifying the \emph{lcp} routine against its specification, we can use \AutoProof to check client code that calls \emph{lcp}.
+For example, the following test cases initialize an array with seven integer values (using the Eiffel syntax \e{<< ... >>}), call \emph{lcp} on the array with different values for \e{x} and \e{y}, and assert (\e{check} in Eiffel) that the results are correct.
+
+\begin{erunning}
+local
+  a: ARRAY [INTEGER]
+do
+  a := <<1, 2, 3, 4, 1, 2, 3>>
+  check lcp (a, 1, 5) = 3 end
+  check lcp (a, 2, 6) = 2 end
+  check lcp (a, 1, 1) = 7 end
+  check lcp (a, 1, 3) = 0 end
+end
+\end{erunning}
+
+Even if all assertions are logical consequences of \e{lcp}'s postcondition, the Boogie translation produced by AutoProof fails to verify the last one.
+We find a quick fix consisting of adding an assertion that explicitly mentions a special fact about the array values:
+\begin{erunning}
+check a[1 + 0] /= a[3 + 0] end
+\end{erunning}
+The translation of this new assertion acts as a trigger to instantiate quantifiers, which Boogie passes on to Z3 and makes verification of the following assertion succeed.
+The assertion \e{a[1 + 0] /= a[3 + 0]} may be placed at any point in the client before the assertion where the trigger is necessary, since Boogie collects all assertions it has encountered so far.
+Based on this additional explicit piece of information, Boogie realizes that there are no valid instantiations of the quantifier, and hence the result must be $0$.
+
+Since it may be hard for the client to anticipate the need for such an additional assertion, we suggest generalizing it into a postcondition of \e{lcp}:\footnote{The operator \e{=} represents both equality and double implication (for Booleans).}
+\begin{erunning}
+(Result = 0) = (a[x] /= a[y])
+\end{erunning}
+which does not affect the specification of the routine but makes it more readily usable to verify arbitrary clients.
+With this postcondition, Boogie also verifies calls to \e{lcp} that return $0$ without the need to suggest quantifier instantiations.
+
+
+%============================================================================
+\subsection{Tree Max} \label{sec:eval-challenges:tree-max}
+%============================================================================
+
+The Tree Max challenge consists of specifying and verifying a function that computes the maximum value of a binary tree. The difficulty in this problem lies in the linked structure of the tree and the need to specify a property over the whole tree. A slightly simplified version of our Eiffel solution is shown in Figure~\ref{fig:code:maxtree}. In this solution we model the tree values as a sequence and use the sequence to verify functional correctness of the maximum function and to prove termination of the recursion. The integrity of the tree is guaranteed by using ownership.
+
+
+\begin{figure}[!ht]
+\begin{tabular}{ll}
+{\begin{erunning}[basicstyle=\footnotesize,numbers=left]
+class BINARY_TREE
+
+feature -- Initialization
+
+	make (v: INTEGER)
+			-- Initialize node.
+		do
+			value := a_value
+			sequence := <<value>> #\label{l:maxtree:seq_init}#
+		ensure
+			value_set: value = v
+			no_left: left = Void
+			no_right: right = Void
+		end
+
+	make_children (v: INTEGER;
+						l, r: BINARY_TREE)
+			-- Initialize node.
+		require
+			l.is_free #\label{l:maxtree:l_free}#
+			r.is_free #\label{l:maxtree:r_free}#
+		do ... ensure
+			value_set: value = v
+			left_set: left = l
+			right_set: right = r
+		end
+
+feature -- Access
+
+	value: INTEGER
+			-- Value of this node.
+
+	left, right: BINARY_TREE
+			-- Children nodes.
+\end{erunning}}
+&
+\hspace{4mm}
+{\begin{erunning}[basicstyle=\footnotesize,numbers=left,firstnumber=last]
+feature -- Basic operations
+
+	maximum: INTEGER
+			-- Maximum value of this tree.
+		require
+			decreases (sequence) #\label{l:maxtree:decreases}#
+		do
+			Result := value
+			if left /= Void then
+				Result := 
+						Result.max (left.maximum)
+			end
+			if right /= Void then
+				Result := 
+						Result.max (right.maximum)
+			end
+		ensure
+			is_max: across sequence.domain as i 
+								all sequence[i] <= Result end
+			exists: sequence.has (Result)
+		end
+
+feature -- Specification
+
+	sequence: MML_SEQUENCE [INTEGER] #\label{l:maxtree:seq}#
+			-- Sequence of values.
+		note ghost end #\label{l:maxtree:ghost_note}#
+
+invariant
+	owns_def: owns = [left, right]
+	seq_def: sequence = left.sequence + 
+			value + right.sequence
+
+end
+\end{erunning}}
+\end{tabular}
+\caption{Implementation of the \emph{tree maximum} challenge of COST 2011.}
+\label{fig:code:maxtree}
+\end{figure}
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Ownership}
+%----------------------------------------------------------------------------
+
+\AutoProof supports a dynamic ownership model. 
+We use ownership to guarantee the tree structure; each parent tree owns the two subtrees \e{left} and \e{right}. The ownership relation is defined by the \e{owns_def} class invariant which specifies the \e{owns} set (a ghost set that contains all owned objects) of the tree to contain exactly the two subtrees. To be able to claim the two subtrees in the sense of ownership, the constructor that takes the two subtrees needs to guarantee that the arguments are unowned. For this, a precondition is added (lines \ref{l:maxtree:l_free} and \ref{l:maxtree:r_free}) that requires the two subtrees be \emph{free} (i.e. not owned). Having ownership of the two subtrees also allows us to use the state of the objects in the class invariant.
+
+%----------------------------------------------------------------------------
+\subsubsection{Tree Model}
+%----------------------------------------------------------------------------
+
+We model the values of the tree rooted in the \e{Current} object as a \emph{sequence}. This allows us to express global properties over the tree. The \e{sequence} attribute (line \ref{l:maxtree:seq}) has the type \e{MML_SEQUENCE}, a class of the Mathematical Model Library (or MML for short).
+The sequence is defined in the class invariant \e{seq_def} to contain the values of the left subtree followed by the value of the \e{Current} tree and finally the values of the right subtree (for simplicity we ignore the case where \e{left} or \e{right} are \e{Void}).
+We are allowed to rely on the state of the two subtrees due to the ownership model that guarantees that all modifications of the owned objects go through the owner.
+
+The sequence is a model of the tree and is declared as \emph{ghost} using Eiffel's annotation mechanism as shown on line~\ref{l:maxtree:ghost_note}. We nevertheless need to initialize the value to use it properly, which is done in the creation routines as exemplified on line~\ref{l:maxtree:seq_init} (the shorthand Eiffel syntax \e{<< ... >>} not only works for arrays but also for MML sets and sequences).
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Functional Correctness}
+%----------------------------------------------------------------------------
+
+The postcondition of \e{maximum} specifies the properties necessary for functional correctness:
+\begin{itemize}
+\item
+\e{is_max}: all values in the model sequence are smaller or equal to the value returned.
+
+\item
+\e{exists}: the value returned is indeed a value of the sequence.
+\end{itemize}
+These two clauses together with the class invariant guarantee that \e{maximum} returns the maximum value of the binary tree. The correctness of the postcondition follows from the postcondition of the recursive calls.
+
+The \e{is_max} postcondition can also be written in a simpler way:
+\begin{erunning}
+across sequence as i all i <= Result end
+\end{erunning}
+\AutoProof will not verify this assertion however. The iteration over \e{sequence} directly will iterate over the \emph{range} of the sequence which is a set. An additional assertion is necessary that connects the range of \e{sequence} with the union of the range of \e{left.sequence}, \e{right.sequence}, and the singleton set containing \e{value}:
+\begin{erunning}
+sequence.range = left.sequence.range + <<v>> + right.sequence.range
+\end{erunning}
+Adding this assertion at the end of \e{maximum} would allow \AutoProof to verify the simpler version of the \e{is_max} postcondition.
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Termination}
+%----------------------------------------------------------------------------
+
+\AutoProof proves termination of the recursion using the decreases annotation on line~\ref{l:maxtree:decreases}. The decreases clause contains a value or MML expression that has a strict order operator. The value needs to be non-negative or non-empty at the beginning of the routine and strictly smaller when evaluated at the callee site. In this case, the \e{sequence} of the subtrees are strictly smaller than the \e{sequence} of the parent tree, as the parent's \e{sequence} is composed of the sequences of the child nodes together with the singleton sequence containing \e{value}.
+
+
+
+%============================================================================
+\subsection{Sum and Max}
+%============================================================================
+
+For the third challenge we are required to verify an algorithm that computes the sum and the maximum element of an array.
+The specification to be proven is not complete, but only asserts that the maximum value times the array length is an upper bound on the sum. 
+Figure~\ref{fig:code:sumandmax} shows an Eiffel implementation with the given specification, which \AutoProof can verify; routine \e{sum_and_max} returns a tuple with the values for sum and max. Two aspects of this algorithm are interesting from the perspective of automated verification.
+
+\begin{efigure}[!ht]{Implementation of the \emph{sum \& max} challenge of VSTTE 2010.}{fig:code:sumandmax}
+sum_and_max (a: ARRAY [INTEGER]): [sum: INTEGER; max: INTEGER]
+		-- Calculate sum and maximum of array `a'.
+	require
+		a_not_empty: a.count < 0
+	local
+		i, sum, max: INTEGER
+	do
+		from
+			i := 1
+		invariant
+			i_in_range: 1 <= i and i <= a.count + 1
+			sum_in_range: sum <= (i-1) * max
+		until
+			i > a.count
+		loop
+			sum := sum + a[i]
+			if a[i] > max then
+				max := a[i]
+			end
+			i := i + 1
+		end
+		Result := [sum, max] #\label{l:sumandmax:new_tuple}#
+	ensure
+		sum_in_range: Result.sum <= a.count * Result.max
+	end
+\end{efigure}
+
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Non-linear Arithmetic}
+%----------------------------------------------------------------------------
+
+The assertions use nonlinear arithmetic (that is, multiplication of variables).
+Boogie has some support for integer multiplication and division, which \AutoProof leverages in the translation to model Eiffel's semantics of integer operations.
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Integer Overflows}
+%----------------------------------------------------------------------------
+
+Enabling overflow checking in \AutoProof will reveal several problems in this example.
+Similar to the \emph{longest common prefix} challenge, the array index \e{i} may overflow when the array size is equal to the largest possible integer value due to array indexing starting at 1. This can easily be fixed by restricting the array bounds to be strictly smaller then the maximum integer value.
+
+Additionally, \AutoProof will report that the summation may overflow.
+Adding and verifying specification to remedy this is non-trivial.
+A ghost function expressing array summation is required to add a precondition that the array sum is in the range of integer values.
+\begin{erunning}
+sequence_sum (s: MML_SEQUENCE [INTEGER]): INTEGER
+		-- Sum of elements in `s'.
+	note functional
+	do
+		Result := if s.is_empty then 0 
+		          else s.last + seq_sum (s.but_last) end
+	end
+\end{erunning}
+Adding such a ghost function will result in an overflow violation of the ghost function itself.
+It is therefore not possible to express the property that the sequence sum is bound by a specific integer value with \AutoProof while having overflow checking enabled.
+This suggests that \AutoProof should be extended to support partial checking of integer overflows, allowing ghost functions to use mathematical integers and making richer specifications in ghost code possible.
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Framing}
+%----------------------------------------------------------------------------
+
+The second interesting aspect is framing. 
+Line~\ref{l:sumandmax:new_tuple} implicitly creates a new tuple\footnote{\e{TUPLE} is a reference type in Eiffel.} to store the result.
+As mentioned before, functions are by default \emph{weakly pure}, which denotes routines that do not modify the object's state but may allocate and change \e{fresh} objects.
+Therefore, we do not need to add any framing annotations to the function, and clients can assume that none of the state accessible by them has changed.
+
+
+%============================================================================
+\subsection{Two-way Sort}
+%============================================================================
+
+Lastly we look at an algorithm that sorts Boolean arrays in linear time.
+The algorithm scans the input array from both ends, looking for and swapping pairs of inverted elements.
+It is a technique similar to Dijkstra's Dutch flag algorithm~\cite{DIJKSTRA76} but working on the two Boolean values rather than on the three flag colors.
+The specification is that the array is sorted and a permutation of the original array when the algorithm terminates.
+Our implementation is shown in Figure~\ref{fig:code:twowaysort}.
+
+\begin{efigure}[!hp]{Implementation of the \emph{two-way sort} challenge of VSTTE 2012.}{fig:code:twowaysort}
+two_way_sort (a: ARRAY [BOOLEAN]): INTEGER
+		-- Sort boolean array `a' in linear time.
+		-- Returns number of False elements in array.
+	note impure #\label{l:twowaysort:impure}#
+	require modify (a) #\label{l:twowaysort:modify}#
+	local i, j: INTEGER
+	do
+		from j := a.count
+		invariant
+			bounds: i >= 0 and i <= j and j <= a.count
+			falses: across 1 |..| i as k all not a.sequence[k] end
+			trues: across (j+1) |..| a.count as k all a.sequence[k] end
+			is_permutation: is_permutation (a.sequence, old a.sequence)
+		until i = j
+		loop
+			if not a[i+1] then i := i + 1
+			elseif a[j] then j := j - 1
+			else
+				i := i + 1
+				swap (a, i, j)
+				j := j - 1
+			end
+		end
+		Result := i #\label{l:twowaysort:result}#
+	ensure
+		falses: across 1 |..| Result as k all not a.sequence[k] end
+		trues: across (Result+1) |..| a.count as k all a.sequence[k] end
+		is_permutation: is_permutation (a.sequence, old a.sequence)
+	end
+
+swap (a: ARRAY [BOOLEAN]; i, j: INTEGER)
+		-- Swap elements `i' and `j' in array `a'.
+	note inline, skip #\label{l:twowaysort:inline_skip}#
+	local t: INTEGER
+	do t := a[i] ; a[i] := a[j] ; a[j] := t end
+
+is_permutation (s1, s2: MML_SEQUENCE [INTEGER]): BOOLEAN
+		-- Are `s1' and `s2' permutations of each other?
+	note functional, ghost #\label{l:twowaysort:func_ghost}#
+	do Result := s1.to_bag ~ s2.to_bag end
+\end{efigure}
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Functional Correctness}
+%----------------------------------------------------------------------------
+
+AutoProof will add an implicit precondition to the \e{two_way_sort} routine that the array \e{a} is not \e{Void}. The postcondition of the routine specifies the sorted property using two individual postconditions \e{falses} and \e{trues}, which denote that the first \e{Result} values of the array are \e{False} and the remaining values are \e{True}. The use of a return value here is only necessary to express this postcondition, hence it should be a ghost value. As it is not possible to express ghost return values in Eiffel we use a normal return value here instead. It would be possible to specify and verify the postcondition without a return value using an existential quantifier (expressed in Eiffel as an \e{across..some} expression). The reasoning about this is difficult for Boogie though and a successful verification needs to employ the trick of using a helper function as trigger. For this, one declares a function that always returns true, asserts the function with the witness necessary for instantiating the existential quantification, and then uses the function in the existential quantifier that needs to be verified. So by replacing line~\ref{l:twowaysort:result} of \e{two_way_sort} with
+\begin{erunning}
+check trigger(i) end
+\end{erunning}
+the two postconditions \e{trues} and \e{falses} could be replaced by
+\begin{erunning}
+across 0 |..| a.count as x some
+	trigger(x) and
+	across 1 |..| x as i all not a.sequence[i] end and
+	across x+1 |..| a.count as i all a.sequence[i] end
+end
+\end{erunning}
+thus removing the need of returning a value.
+The function \e{trigger} that is necessary for this scheme to work trivially returns \e{True}. Its purpose is only to serve as a trigger for Boogie:
+\begin{erunning}
+trigger (x: INTEGER) note ghost do Result := True end
+\end{erunning}
+
+The last postcondition expressing that the output array is a permutation of the input array relies on the helper function \e{is_permutation} that we describe below. All postconditions follow trivially from the loop invariant which expresses the progress of starting at both ends of the array and swapping inversed elements.
+
+%----------------------------------------------------------------------------
+\subsubsection{Ghost Functions}
+%----------------------------------------------------------------------------
+
+It can be beneficial to encode properties that are used often in helper functions. In the case of \e{two_way_sort}, we have done this with \e{is_permutation}, which takes two MML sequences and checks whether they are permutations of each other. The implementation falls back on another MML data type: the \emph{bag} (or multiset). If the bag-representations of the two sequences are identical, then they must be permutations. Since the arguments to the function are MML types, which are only used to represent ghost state like the sequence representation of the array, the function is declared as \emph{ghost} as well (line~\ref{l:twowaysort:func_ghost}). In addition, the function is also declared \emph{functional}. Functional functions can only contain a single assignment to the result and no additional statements. In the Boogie translation the function is translated to a Boogie \b{function}, making its use in specifications more efficient.
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Framing}
+%----------------------------------------------------------------------------
+
+Functions are by default assumed to be pure. For the implementation of \e{two_way_sort} of Figure~\ref{fig:code:twowaysort}, where we sort the array but also return a value, we have to override the default behavior of \AutoProof. This can be done by adding the \emph{impure} annotation on line \ref{l:twowaysort:impure} and explicitly specifying that the array will be modified with the \emph{modify} clause on line \ref{l:twowaysort:modify}.
+
+
+%----------------------------------------------------------------------------
+\subsubsection{Inlining}
+%----------------------------------------------------------------------------
+
+
+An interesting aspect which demonstrates \AutoProof's capabilities is the usage of a separate routine \e{swap} to switch inverted elements.
+Standard verifiers leverage modular reasoning, which entails that the effect of a routine call within the caller is limited to what is mentioned in the callee's specification (its postcondition, in particular).
+Therefore, verification of implementations such as that in Figure~\ref{fig:code:twowaysort} would fail because \e{swap} has no specification, and hence its effect within \e{two_way_sort} is undetermined.
+\AutoProof, however, supports two-step verification: after a first unsuccessful attempt at modular verification, it tries to inline \e{swap}'s body within \e{two_way_sort} and notices that verification is successful in this case.
+\AutoProof reports such ``partially successful'' attempts specially in the GUI, and offers two options: either just use \e{swap} inlined whenever it is called, or provide a suitable specification to \e{swap} so that the correctness proof can be carried out modularly.
+In this simple example, where \e{swap} is just a helper function and writing its complete specification seems an overkill, we opted for the first option: we added the annotation \e{inline} on line~\ref{l:twowaysort:inline_skip}, which makes \AutoProof inline \e{swap} whenever necessary without complaining about its lack of specification.
+This reduces the specification burden on users, thus making the whole verification a bit more practical.
+In addition, we also added the annotation \e{skip} to tell \AutoProof to ignore the \e{swap} routine entirely when verifying the class, as otherwise \AutoProof would complain about the array accesses in \e{swap}. Skipping inlined routines is not an issue for correctness, as their implementation will be verified as part of the caller.
+
+
+
+

@@ -1,0 +1,32 @@
+%############################################################################
+\section{Related Work}
+\label{sec:ap-related}
+%############################################################################
+
+
+In reviewing related work, we focus on the tools that are closer to \AutoProof in terms of features, design principles, and goals.
+Only few of them are, like \AutoProof, auto-active, work on real object-oriented programming languages, and support the verification of general functional properties.
+Krakatoa~\cite{FILLIATRE07} belongs to this category, as it works on Java programs annotated with a variant of JML (the Java Modeling Language~\cite{LEAVENS05}).
+Since it lacks a full-fledged methodology for class invariants and framing, using Krakatoa to verify object-oriented idiomatic patterns---such as those we discuss in Section~\ref{sec:eval}---would be impractical; in fact, the reference examples distributed with Krakatoa target the verification of algorithmic problems where object-oriented features are immaterial.
+Similar observations apply to the few other auto-active tools working on Java and JML, such as ESC/Java2~\cite{COK05,CHALIN06}\footnote{With the \texttt{-loopsafe} option which performs sound verification.} or the more recent OpenJML~\cite{COK11,OPENJML}.
+Even when ESC/Java2 was used on a few industrial-strength case studies (such as the KOA e-voting system~\cite{KINIRY07}), the emphasis was on modeling and correct-by-construction development, and verification was normally applied only to limited parts of the systems.
+By contrast, the Spec\# system~\cite{BARNETT05,BARNETT11} was the forerunner in a new research direction, also followed by \AutoProof, that focuses on the complex problems raised by object-oriented structures with sharing, object hierarchies, and collaborative patterns.
+Spec\# works on an annotation-based dialect of the C\# language, and supports an ownership model which is suitable for hierarchical object structures; as well as visibility-based invariants to specify more complex object relations.
+Collaborative object structures as implemented in practice require, however, 
+more flexible methodologies~\cite{POLIKARPOVA14} not currently available in Spec\#.
+Tools, such as VeriFast~\cite{JACOBS10}, based on separation logic provide powerful methodologies through different abstractions than class invariants, which typically leads to a lower level of automation than tools such as \AutoProof and a generally higher annotation overhead---ultimately targeting highly trained users.
+
+
+The experience with the Spec\# project suggested that targeting a real object-oriented programming language introduces numerous complications and may divert the focus away from the fundamental problems in tool-supported verification.
+The Dafny program verifier~\cite{LEINO10} was developed based on this lesson: it supports a simple language expressly designed for verification, which eschews many of the complications of real object-oriented programming languages (such as inheritance and a complex memory model). 
+Other auto-active verifiers entirely avoid the object-oriented paradigm.
+For example, Leon~\cite{SUTER11} and Why3~\cite{BOBOT11,FILLIATRE13} work on functional programming languages---respectively, a subset of Scala and a dialect of ML; VCC~\cite{COHEN09} works on C programs and supports object invariants but with an emphasis on memory safety of low-level concurrent code.
+
+\AutoProof lies between automatic and interactive tools in the wide spectrum of verification tools.
+The CodeContract checker (formerly known as Clousot~\cite{LOGOZZO12}) is a powerful static analyzer for .NET languages that belongs to the former category (and hence it is limited to properties expressible in its abstract domains).
+The KeY system~\cite{BECKERT07} for Java belongs to the latter category: while it supports SMT solvers as back-ends to automatically discharge simple verification conditions, its full-fledged usage requires explicit user interactions to guide the prover through the verification process.
+
+
+
+
+

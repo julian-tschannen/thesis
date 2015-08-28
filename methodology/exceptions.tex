@@ -1,0 +1,192 @@
+%############################################################################
+\section{Exceptions}
+\label{sec:m-exceptions}
+%############################################################################
+
+Eiffel's exception handling mechanism is different from most other object-oriented programming languages such as C\# and Java.\footnote{Other work has formalized the semantics of Java exceptions~\cite{MUELLER07} and compared it against Eiffel's~\cite{NORDIO09}.}
+This section presents Eiffel's exception mechanism (Section~\ref{sec:m-exceptions:eiff-except-mech}), discusses how to annotate exceptions (Section~\ref{sec:m-exceptions:spec-except}), and describes the translation of Eiffel's exceptions to Boogie (Section~\ref{sec:m-exceptions:translation-boogie}) with the help of an example and a small case study (Section~\ref{sec:m-exceptions:example}).
+
+The methodology described here applies to the Eiffel exception mechanism as described in the Eiffel ECMA standard~\cite{ECMA367}.
+Since the Eiffel compilers existing today are still using the old exception mechanism, this methodology is not implemented in \AutoProof.
+
+
+%============================================================================
+\subsection{How Eiffel Exceptions Work} \label{sec:m-exceptions:eiff-except-mech}
+%============================================================================
+
+
+Eiffel exception handlers are specific to each routine, where they occupy an optional \e{rescue} clause, which follows the routine body (\e{do}).
+A routine's \e{rescue} clause is ignored whenever the routine body executes normally. 
+If, instead, executing the routine body triggers an exception, control is transferred to the  \e{rescue} clause for exception handling.
+The exception handler will try to restore the object state to a condition where the routine can execute normally.
+To this end, the body can run more than once, according to the value of an implicit variable \e{Retry}, local to each routine: when the execution of the handler terminates, if \e{Retry} has value \e{True} the routine body is run again, otherwise \e{Retry} is \e{False} and the pending exception propagates to the \e{rescue} clause of the caller routine\footnote{This is how Eiffel's exception mechanism is described in the current Eiffel specification draft by the Eiffel ECMA committee. The main Eiffel compiler is using the older exception mechanism, where \e{retry} is a statement that immediately exits the rescue clause}.
+
+Figure~\ref{fig:exceptions-eiffel} illustrates the Eiffel exception mechanism with an example. 
+The routine \e{attempt_transmission} tries to transmit a message by calling \e{unsafe_transmit}; if the latter routine terminates normally, then also \e{attempt_transmission} terminates normally without executing the \e{rescue} clause.
+On the contrary, an exception triggered by \e{unsafe_transmit} transfers control to the \e{rescue} clause, which re-executes the body \e{max_attempts} times; if all the attempts fail to execute successfully, the attribute \e{failed} is set and the exception propagates. 
+
+\begin{efigure}[ht]{An Eiffel routine with exception handler.}{fig:exceptions-eiffel}
+attempt_transmission (m: STRING)
+	local
+		failures: INTEGER
+	do
+		failed := False
+		unsafe_transmit (m)
+	rescue
+		failures := failures + 1
+		if failures < max_attempts then
+			Retry := True
+		else
+			failed := True
+		end
+	end
+\end{efigure}
+
+
+
+
+%============================================================================
+\subsection{Specifying Exceptions} \label{sec:m-exceptions:spec-except}
+%============================================================================
+
+
+The postcondition of a routine with \e{rescue} clause specifies the program state both after normal termination and when an exception is triggered. 
+The two post-states are in general different, hence we introduce a global Boolean variable \e{ExcV}, which is \e{True} if and only if the routine has triggered an exception.
+Using this auxiliary variable, specifying postconditions of routines with exception handlers is straightforward.
+For example, the postcondition of routine \e{attempt_transmission} in Figure~\ref{fig:exceptions-eiffel} says that \e{failed} is \e{False} if and only if the routine executes normally:
+
+\begin{erunning}
+attempt_transmission (m: STRING)
+	ensure
+		ExcV implies failed
+		not ExcV implies not failed
+\end{erunning} 
+
+The example also shows that the execution of a \e{rescue} clause behaves as a loop: a routine \e{r} with exception handler \e{r do$\ s_1\ $rescue$\ s_2\ $end} behaves as the loop that first executes $s_1$ unconditionally, and then repeats $s_2 \,;\, s_1$ until $s_1$ triggers no exceptions or \e{Retry} is \e{False} after the execution of $s_2$ (in the latter case, $s_1$ is not executed anymore).
+To reason about such implicit loops, we introduce a \emph{rescue invariant}~\cite{NORDIO09-2,NORDIO08}; the rescue invariant holds after the first execution of $s_1$ and after each execution of $s_2\,;\,s_1$.
+A suitable rescue invariant of routine \e{attempt_transmission} is:
+
+\begin{erunning}
+rescue invariant
+	not ExcV implies not failed
+	(failures < max_attempts) implies not failed
+\end{erunning} 
+
+
+%============================================================================
+\subsection{Eiffel Exceptions in Boogie} \label{sec:m-exceptions:translation-boogie}
+%============================================================================
+
+The auxiliary variable \e{ExcV} becomes a global variable in Boogie, so that every assertion can reference it.
+The translation also introduces an additional precondition \boogie{ExcV = false} for every translated routine, because normal calls cannot occur when exceptions are pending, and adds ExcV to the modifies clause of every procedure.
+Then, a routine with body $s_1$ and rescue clause $s_2$ becomes in Boogie:
+
+\begin{brunning}
+	$\tr{s_1, excLabel}$
+excLabel:
+	while (ExcV) 
+	invariant $\tr{I_{rescue}}$;
+	{
+		ExcV := false;
+		Retry := false;
+		$\tr{s_2, endLabel}$  
+		if (!Retry) { ExcV := true; goto endLabel; }
+		$\tr{s_1, excLabel}$
+	}
+endLabel:
+\end{brunning} 
+
+\noindent
+where $\tr{s, l}$ denotes the Boogie translation $\tr{s}$ of the instruction $s$, followed by a jump to label $l$ if $s$ triggers an exception:
+\begin{equation*}
+\tr{s, l} \ =\ \begin{cases}
+  \tr{s', l} \,;\,\tr{s'', l} &  \text{if } s \text{ is the compound }s'\,;\,s'' \\
+  \tr{s} \,;\, \text{\b{if (ExcV) $\,$\{goto l;\}}}  &  \text{otherwise}
+ \end{cases}
+\end{equation*}
+
+Therefore, when the body $s_1$ triggers an exception, \b{ExcV} is set and the execution enters the rescue loop. %, which handles the exception.
+On the other hand, an exception that occurs in the body of $s_2$ jumps out of the loop and to the end of the routine.
+
+The exception handling semantics is only superficially similar to having control-flow breaking instructions such as \emph{break} and \emph{continue}---available in languages other than Eiffel---inside standard loops: the program locations where the control flow diverts in case of exception are implicit, hence the translation has to supply a conditional jump after every instruction that might trigger an exception.
+This complicates the semantics of the source code, and correspondingly the verification of Boogie code translating routines with exception handling. 
+This makes it not only harder for the verifier to prove a routine, but also for the programmer to understand the exact semantics of the code.
+
+
+%============================================================================
+\subsection{Example and Case Study} \label{sec:m-exceptions:example}
+%============================================================================
+
+
+Figure~\ref{fig:exceptions-boogie} shows the translation of the example in Figure~\ref{fig:exceptions-eiffel}. 
+To simplify the presentation, Figure~\ref{fig:exceptions-boogie} renders the attributes \e{max_attempts}, \e{failed}, and \e{transmitted} (set by \e{unsafe_transmit}) as variables rather than locations in a heap map.
+The loop in lines~\ref{loop-begin}--\ref{loop-end} maps the loop induced by the \e{rescue} clause, and its invariant (lines \ref{inv1} and \ref{inv2}) is the rescue invariant.
+
+\begin{bfigure}[hp]{Boogie translation of the Eiffel routine in Figure~\ref{fig:exceptions-eiffel}.}{fig:exceptions-boogie}
+var max_attempts: int; 
+var failed: bool; 
+var transmitted: bool;
+
+procedure unsafe_transmit (m: ref);
+	free requires ExcV == false;
+	modifies ExcV, transmitted;
+	ensures ExcV <==> !transmitted;
+
+procedure attempt_transmission (m: ref);
+	free requires ExcV == false;
+	modifies ExcV, transmitted, max_attempts, failed;
+	ensures ExcV <==> failed;
+
+implementation attempt_transmission (m: ref)
+{
+		var failures: int;
+		var Retry: bool;  
+	entry:
+		failures := 0; Retry := false; failed := false;
+		call unsafe_transmit (m); if (ExcV) { goto excL; }       
+	excL:
+			while (ExcV) #\label{loop-begin}#
+			invariant ! ExcV ==> ! failed; #\label{inv1}#
+			invariant (failures < max_attempts) ==> ! failed; #\label{inv2}#
+			{    
+				ExcV := false; Retry := false;
+				failures := failures + 1; 
+				if (failures < max_attempts) {
+					Retry := true;
+				} else {
+					failed := true;
+				}
+				if (! Retry) {ExcV := true; goto endL;}    
+				failed := false
+				call unsafe_transmit (m); if (ExcV) { goto excL; }
+			}  #\label{loop-end}#
+	endL:
+		return;
+}     
+\end{bfigure}
+
+We have done a small case study with a set of routines presented in Meyer's book~\cite{MEYER97} when describing Eiffel exceptions and a second set of classes that are part of the EiffelStudio compiler. To verify them, we extended the original contracts with postconditions to express the behavior when exceptions are triggered, and with rescue invariants. The translation of the examples to Boogie was done by hand, as the described methodology is not implemented in our verifier. The results of the case study are summarized in the following table:
+
+\begin{center}
+\footnotesize
+\begin{tabular}{ l  c c c c c }
+  \textsc{Example name} \ \ & \textsc{Classes}\ \ & \textsc{LOC\newline Eiffel}\ \ \ \ & \textsc{LOC\newline Boogie}\ \ \ \ & \textsc{Time [s]} \\ \hline
+  Textbook OOSC2   & 1 & 106 & 481 & 2.33  \\
+  Runtime ISE      & 4 & 203 & 561 & 2.32 \\
+\end{tabular}
+\end{center}
+
+The most difficult part of verifying these example was inventing rescue invariants. Even when the examples are simple, the rescue invariants may be subtle, because not only is the loop to reason about implicit, but they also have to include clauses both for normal and for exceptional termination.
+
+
+
+%============================================================================
+\subsection{Related Work} \label{sec:m-exceptions:related-work}
+%============================================================================
+
+Other object-oriented languages such as Java or C\# have exception mechanisms that allow to catch exceptions for arbitrary code blocks. If exceptions are not catched, they are thrown to the calling context. This execution model---in absence of unusual situations like using jump instructions in the catch block---does not introduce implicit loops and therefore does not need exception invariants.
+
+To deal with exceptional executions of routines, Java-based verifiers such as Krakatoa~\cite{MARCHE05} and OpenJML~\cite{COK11} allow postconditions for the case of an uncaught exception. This is equivalent to using an exception value to conditionally trigger some postconditions in the regular case and other postconditions in the exceptional case.
+
+Spec\# provides a special annotation to signal to clients of a routine which exceptions will be triggered if the caller does not fulfill particular precondition clauses~\cite{LEINO04b}
+

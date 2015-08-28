@@ -1,0 +1,236 @@
+\documentclass[a4paper,12pt,twoside]{mythesis}
+
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{listings}
+\usepackage{dcolumn}
+\usepackage{graphicx}
+\usepackage{fancyhdr}
+\usepackage[english, german]{babel}
+\usepackage{xspace}
+\usepackage[pdftex]{hyperref}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsfonts}
+\usepackage[obeyFinal,colorinlistoftodos,textsize=scriptsize,textwidth=0.3\textwidth]{todonotes}
+\usepackage{rotating}
+\usepackage{lscape}
+\usepackage{longtable}
+\usepackage{multirow}
+\usepackage{colortbl}
+\usepackage{triotex}
+\usepackage{enumitem}
+\usepackage[rightcaption]{sidecap}
+\usepackage{caption}
+\usepackage{changepage}
+
+\usepackage{chngcntr}
+\counterwithout{figure}{chapter}
+\counterwithout{table}{chapter}
+
+
+\newcommand{\AutoProof}{Auto\-Proof\xspace}
+\newcommand{\AutoTest}{Auto\-Test\xspace}
+\newcommand{\AutoFix}{Auto\-Fix\xspace}
+\newcommand{\Inspector}{Eiffel Inspector\xspace}
+\newcommand{\EVE}{EVE\xspace}
+\newcommand{\VAssist}{Verification Assistant\xspace}
+\newcommand{\VSRepo}{Verified Software Repository\xspace}
+
+\renewcommand{\t}{\ensuremath{\mathcal{T}}\xspace}
+\newcommand{\tr}[1]{\ensuremath{\mathcal{T}\ifx\\#1\\ \else(#1)\fi}}
+\newcommand{\ts}[2]{\ensuremath{\mathcal{T}_{\mathrm{#1}}\ifx\\#2\\ \else(#2)\fi}}
+\newcommand{\m}{\ensuremath{\mathcal{M}}\xspace}
+\newcommand{\map}[1]{\ensuremath{\mathcal{M}\ifx\\#1\\ \else(#1)\fi}}
+
+
+% from VSTTE paper
+\newcommand{\sub}{\ensuremath{\mathsf{sub}}}
+\newcommand{\inline}{\ensuremath{\mathsf{inline}}}
+\newcommand{\unroll}{\ensuremath{\mathsf{unroll}}}
+\newcommand{\paths}{\ensuremath{\pi}}
+\newcommand{\insize}[1]{\ensuremath{\Vert#1\Vert}}
+
+% Colors
+\definecolor{darkred}{HTML}{990000}
+\definecolor{darkgreen}{HTML}{007700}
+
+% Automatic row numbers
+\newcounter{tablerownumbers}
+\newcommand\rownumber{\refstepcounter{tablerownumbers}\arabic{tablerownumbers}}
+
+% Unique numbering of tables and figures (from stackoverflow)
+% see http://bugcounting.net/blog/?p=99
+\makeatletter
+\renewcommand*{\thetable}{\arabic{table}}
+\renewcommand*{\thefigure}{\arabic{figure}}
+\let\c@table\c@figure
+\makeatother
+
+% Headings
+\addtolength{\headwidth}{\marginparsep}
+\addtolength{\headwidth}{\marginparwidth}
+\lhead[\fancyplain{}{\thepage}]  {\fancyplain{}{\rightmark}}
+\rhead[\fancyplain{}{\leftmark}] {\fancyplain{}{\thepage}}
+\cfoot{}
+\setlength{\headheight}{28pt}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% CODE LISTINGS
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Set up font
+\usepackage[scaled=0.85]{beramono} 
+
+% Eiffel language
+\usepackage{eiffel}
+\newcommand{\eiffel}[1]{\mbox{\lstinline[language=Eiffel]|#1|}}
+\newcommand{\e}[1]{\mbox{\lstinline[language=Eiffel]|#1|}}
+\lstnewenvironment{efigure}[3][]
+{\figure[#1]\small\lstset{language=Eiffel}}
+{\caption{#2}\label{#3}\endfigure}
+\lstnewenvironment{erunning}[1][]
+{\small\lstset{language=Eiffel, numbers=none, #1}}{}
+
+% Boogie language
+\usepackage{boogie}
+\newcommand{\boogie}[1]{\mbox{\lstinline[language=Boogie]|#1|}}
+\renewcommand{\b}[1]{\mbox{\lstinline[language=Boogie]|#1|}}
+\lstnewenvironment{bfigure}[3][]
+{\figure[#1]\small\lstset{language=Boogie}}
+{\caption{#2}\label{#3}\endfigure}
+\lstnewenvironment{brunning}[1][]
+{\small\lstset{language=Boogie, numbers=none, #1}}{}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% CHAPTER IMAGES
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\usepackage{grfext}
+\PrependGraphicsExtensions*{.png,.PNG}
+
+% switch
+\newif\ifprintimage
+\printimagetrue
+
+% image function
+\usepackage[absolute]{textpos}
+\newcommand{\chapterimage}[1]{
+\begin{textblock*}{\paperwidth}(0mm,60mm)
+\ifprintimage
+  \includegraphics[width=\paperwidth,height=0.5\paperheight]{#1}
+\fi
+\end{textblock*}
+}
+
+% title color and font
+\definecolor{title}{HTML}{00AEEF}
+\usepackage{transparent}
+\newcommand\customfont[1]{{\usefont{T1}{custom}{m}{n} #1 }}
+
+% title adaptations
+\usepackage{titlesec}
+\newcommand{\normalchapter}{
+  \titleformat{\chapter}[display]
+    {\normalfont\Huge\scshape}
+    {\chaptertitlename\ \thechapter}
+    {20pt}
+    {\Huge}
+  \titlespacing*{\chapter}{0pt}{50pt}{40pt}
+}
+\newcommand{\imagechapter}{
+  \ifprintimage
+    \titleformat{\chapter}[display]
+      {\normalfont\Huge\scshape\color{title}\usefont{T1}{custom}{m}{n}}
+      {\chaptertitlename\ \thechapter}
+      {140pt}
+      {\scriptsize\transparent{0}}
+    \titlespacing*{\chapter}{0pt}{-25pt}{300pt}
+  \fi
+}
+%\titleformat{\section}
+%  {\normalfont\Large\bfseries\color{title}\usefont{T1}{custom}{m}{n}}{\thesection}
+%  {1em}
+%  {}
+\normalchapter
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% DOCUMENT
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{document}
+
+\frenchspacing
+\selectlanguage{english}
+
+  \pagenumbering{alph}\pagestyle{empty}
+
+%\input{front/coverpage} \cleardoublepage
+\input{front/titlepage} \cleardoublepage
+
+  \pagenumbering{roman}\pagestyle{plain}
+
+\normalchapter
+\input{front/acknowledgements} \cleardoublepage
+\tableofcontents\cleardoublepage
+\input{front/abstract} \cleardoublepage
+
+  \pagenumbering{arabic}\pagestyle{fancyplain}
+
+\imagechapter
+\input{summary/introduction}
+\input{summary/contributions}
+\input{summary/related_work}
+\input{summary/outline}
+
+\imagechapter
+\input{assistant/introduction}
+\input{assistant/example}
+\input{assistant/tools}
+\input{assistant/staticdynamic}
+\input{assistant/design}
+\input{assistant/scores}
+\input{assistant/scenario}
+\input{assistant/related_work}
+
+\imagechapter
+\input{autoproof/introduction}
+\input{autoproof/interface}
+\input{autoproof/language_coverage}
+\input{autoproof/translation}
+\input{autoproof/implementation}
+\input{autoproof/related_work}
+
+\imagechapter
+\input{evaluation/introduction}
+\input{evaluation/challenges}
+\input{evaluation/repo}
+\input{evaluation/teaching}
+
+\imagechapter
+\input{methodology/introduction}
+\input{methodology/boogie}
+\input{methodology/overview}
+\input{methodology/implicit}
+\input{methodology/inlining}
+\input{methodology/twostep}
+\input{methodology/polymorphic}
+\input{methodology/exceptions}
+
+\imagechapter
+\input{back/conclusions}
+
+  \appendix
+
+\imagechapter
+\input{back/tutorial}
+
+\imagechapter
+\input{back/manual}
+
+\normalchapter
+\input{back/bibliography}
+
+\normalchapter
+\input{back/cv}
+
+\end{document}

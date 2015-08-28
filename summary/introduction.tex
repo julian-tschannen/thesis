@@ -1,0 +1,156 @@
+%############################################################################
+\chapter{Introduction}
+\label{sec:intro}
+\chapterimage{images/introduction}
+%############################################################################
+
+%scoping
+%- talk about the big problem
+%- talk about individual issues, pointer to related work, short summary what we do, and point to individual chapters
+
+
+%============================================================================
+\section{Motivation and Goals}
+%============================================================================
+
+% what is the big problem?
+% - software correctness is important
+% - tools are important for software verification
+% - to be more usable, tools need to be integrated in the software process, i.e. ide used by developers
+% - to be more widely applicable, tools need to support idiomatic code and be scalable
+
+
+Even long-standing skeptics must acknowledge the substantial progress of formal methods in the last decades.
+Established verification techniques, such as those based on axiomatic semantics or abstract interpretation, have matured from the status of merely interesting scientific ideas to being applicable in practice to realistic programs and systems.
+Novel approaches have extended the applicability of these techniques beyond their original scope, providing new angles from which to attack the hardest verification challenges; for example, model checking techniques, initially confined to digital hardware verification, are now applied to software or real-time systems.
+Tool support has tremendously improved in terms of both reliability and performance, as a result of cutting-edge engineering of every component in the verification tool-chain as well as the increased availability of computing power.
+Tools have practically demonstrated the impact of general theoretical principles, and they have brought automation into significant parts of the verification process.
+
+%1. practical usage of oo
+%oo patterns, polymorphism, exceptions, function objects, collaborative structures, modular design of programs (encapsulation, information hiding) to build large systems based on libraries
+In modern object-oriented programming languages, developers write idiomatic object-oriented code based on established design patterns and using language features such as polymorphism, function objects, and exceptions.
+Large systems are built based on modularity, encapsulation, and information hiding.
+%2. functional verification
+%specifications, design by contract. different tools available from code analysis through manual and automated testing frameworks to interactive and automated static verification tools
+To provide automated verification of functional correctness of object-oriented programs, developers need to provide machine-readable specifications.
+To this end, Design by Contract~\cite{MEYER92} has been adopted by several object-oriented programming languages, either natively~\cite{MEYER97,AMEER07} or ad-hoc~\cite{BARNETT10,LEAVENS05}.
+This paves the way for tools to offer advanced code analysis, automated test generation, and static verification.
+
+%3. challenge of 1.
+%requires extensive specifications and advanced methodologies to deal with framing, aliasing, function objects, class invariants, collaboration; needs to be modular for scalability
+Verification of idiomatic object-oriented code faces many challenges created by the flexibility offered to developers, such as framing, aliasing, class invariants, and collaborative object structures.
+Large systems are built up from smaller components, encouraging modularity also on the level of verification.
+%4. challenge of 2.
+%needs to be usable in practice; it is possible to integrate multiple analysis or verification tools on different levels; to be open for future development of new tools, integration should be flexible
+For developers to use verification tools in practice, tools need to be usable and cover a large part of the programming language.
+With the advance in verification techniques, the number of tools available to developers is increasing as well.
+Instead of just using these tools individually, integrating multiple tools in beneficial ways is a challenge as well, that can be addressed on different levels.
+
+%5. thesis
+%goal is to advance the state of the art in (1) proposing a novel way to combine verification tools (2) provide tool support for formal verification of idiomatic object-oriented programs (3) improve usability of verification tools
+This is where this thesis tries to advance the state of the art: our goals are (1) to propose a novel way of integration verification tools, (2) provide tool support for formal verification of an object-oriented language, and (3) improve the usability of verification tools.
+
+
+
+%============================================================================
+\section{Summary and Main Results}
+%============================================================================
+
+% issue1: verification tool integration
+% - developers have many different and diverse verification tools available
+% - integration in IDEs is often limited to offering to use tools side-by-side, some frameworks offer integrated approaches
+% - our approach is to use a verification assistant that
+%   - runs automatic verification tools in the background
+%   - automation and aggregation of results in a unified interface
+%   - aggregates the results using a scoring system based on correctness confidence
+%   - works on a high level and is therefore flexible to add or remove tools (good for research where tools might change quickly)
+
+\subsection{Integration of verification tools}
+
+With the increased availability of verification tools, developers have to integrate these tools into the development process.
+To provide direct integration into the workflow of programmers, tools need to be available as part of the development environment (IDE).
+Verification tools sometimes offer a standalone graphical user interface (e.g.~\cite{CUOQ12,FILLIATRE13}) or are integrated only loosely into an existing IDE (e.g.~\cite{BARNES03,COK11,LOGOZZO12}). In modern IDEs, multiple such tools are usually available side-by-side~\cite{VISUALSTUDIO,SPARKPRO,EIFFELSTUDIO}.
+Different approaches have been proposed to leverage the existence of multiple tools by combining them in ways to enhance the individual functionalities, for example by combining multiple analyses~\cite{CORRENSON12}, making assumptions explicit~\cite{CHRISTAKIS12}, or by combining static and runtime verification~\cite{AHRENDT12}.
+These integration techniques work on a low level and require the verification tools to be directly compatible in some form, therefore they are not applicable to integrate tools of widely differing techniques.
+
+We propose an approach to combine the output of verification tools that works on a higher level of abstraction than existing techniques.
+The integrated verification tools work completely independently and report their result to a central controller.
+Each individual tool's results are summarized as a single correctness score for each unit of code (e.g. routine). In addition, tools report the confidence they have in their own score. The confidence is based on the tool's applicability to the verified code; for example, when a tool verifies a routine that uses floating-point arithmetic, but does not model floating-point numbers according to the underlying machine semantics, the confidence in the result will not be 100\%.
+The controller then combines scores from different tools using weighted averages based on the confidence of each tool and other measures, e.g. visibility of routines.
+Their aggregated results are displayed to the developer in a single interface, highlighting which areas of the program are in a good or bad shape with respect to the verification effort.
+The advantage of working at this level of abstraction is that the integration is tool-agnostic:
+The approach can be used to combine different tools that are completely independent from each other, supports integration of tools that use very different techniques, and simplifies the addition of new tools.
+We have implemented this methodology in the \VAssist as part of the Eiffel Verification Environment (\EVE)~\cite{EVE} combining three diverse tools: (1) \AutoProof~\cite{TSCHANNEN15}, a static verifier; (2) \AutoTest~\cite{MEYER09}, an automatic contract-based testing tool; and (3) \Inspector~\cite{ZURFLUH14}, a light-weight code analysis tool.
+
+
+
+% issue2: tool support for verification of an object-oriented language
+% - object-oriented code poses specific challenges to handle aspects like object consistency, inheritance, and collaboration
+% - diverse range of approaches exists based on different techniques like abstract interpretation or model checking
+% - also deductive verification using proof assistants or smt solvers
+% - we have chosen to follow the approach of deductive verification using Boogie as an intermediate verification language, similar to JML and Spec#, to verify Eiffel programs
+%   - we have developed AutoProof, an auto-active verifier for Eiffel based on Boogie
+%   - it supports verification of advanced object-oriented concepts: class invariants (including collaboration), agents, and inheritance
+%   - we give detailed evaluation of using AutoProof on problems from recent verification competitions; we have used AutoProof to verify different algorithms 
+%   - AutoProof has been used in a verification course to introduce students to software verification
+
+\subsection{Verification of object-oriented programs}
+
+Object-oriented programs pose many challenges to verification: accurately modeling heap manipulations in the presence of aliasing, object consistency, or inheritance while still having automated reasoning.
+Different verification techniques like abstract interpretation~\cite{COUSOT77,COUSOT79}, model checking~\cite{CLARKE81}, or deductive verification~\cite{HOARE69} can be used to tackle these challenges.
+While each technique offers different advantages as discussed in Section~\ref{sec:intro:related}, we have chosen to use the approach used by several other verifiers~\cite{BARNETT05,COHEN09,LEINO10,LEINO10c,COK11} and use Boogie~\cite{LEINO08} as an intermediate verification language.
+The use of Boogie as an intermediate verification language allows us to work on a high level of abstraction when reasoning about the semantics of the programming language, Eiffel in our case, and makes sound and precise reasoning about complex properties possible.
+In addition, using an intermediate verification language allows us to benefit from independent improvements on any element of the tool-chain.
+
+Program verification techniques differ wildly in their degree of automation, ranging from completely \emph{automatic}, where the only input required is the program to be verified, to \emph{interactive} approaches to verification, where the user is ultimately responsible for providing input to the prover on demand.
+In more recent years a new class of approaches have emerged that try to achieve an intermediate degree of automation between automatic and interactive---hence their designation~\cite{LEINO10b} as the portmanteau \emph{auto-active}\footnote{Although \emph{inter-matic} would be as good a name.}.
+Auto-active tools need no user input during verification, which proceeds autonomously until it succeeds or fails; however, the user is still expected to provide guidance indirectly through \emph{annotations} (such as loop invariants) in the input program.
+The auto-active approach has the potential of better supporting \emph{incrementality}: proving simple properties would require little annotations and of the simple kinds that novice users may be able to provide; proving complex properties would still be possible but by sustaining a high annotation burden.
+
+With \AutoProof we developed an auto-active verifier for the Eiffel programming language. The verifier covers a large part of the Eiffel language and can be used to verify challenging problems. Practical verification of idiomatic object-oriented code is achieved by supporting methodologies such as semantic collaboration~\cite{POLIKARPOVA14}---a powerful methodology for framing and class invariants---and verification of function objects~\cite{NORDIO10}.
+\AutoProof has been used to successfully verify a general-purpose container library~\cite{POLIKARPOVA15} and to verify client code that uses said library~\cite{FURIA15}.
+We have evaluated \AutoProof on challenging examples, all of which are available online~\cite{APREPO}, that attest \AutoProof's competitiveness among other tools in its league.
+We provide an in-depth discussion of a variety of challenges from recent verification competitions in Chapter~\ref{sec:eval}, describing in detail how \AutoProof performs on these examples.
+\AutoProof is available for download as part of the Eiffel Verification Environment (\EVE)~\cite{EVE} or online on Comcom~\cite{APCOMCOM}. The usage is supported by a tutorial~\cite{APTUTORIAL} and a manual~\cite{APMANUAL} which are present in the Appendices~\ref{sec:ap-tutorial} and~\ref{sec:ap-manual}.
+
+
+
+% issue3: auto-active verification of object-oriented code
+% - Verifiers combine a variety of methodologies: framing, invariants, ...
+% - our verifier incorporates different approaches that have been proposed by others
+% - we also propose some methodologies usable by auto-active verifiers
+%   - two-step verification
+%   - polymorphic calls
+%   - verification of eiffel exception handling
+
+\subsection{Verification methodologies}
+
+When developing a verifier for an object-oriented programming language, a crucial design choice are the supported verification methodologies.
+For example, different approaches to framing (e.g.~\cite{REYNOLDS02,KASSIOS06}), dealing with class invariants (e.g.~\cite{BARNETT04,LEINO04,POLIKARPOVA14}), or dealing with function objects (e.g.~\cite{MUELLER09,NORDIO10}) have been proposed, including our own.
+As part of our work with \AutoProof, we have developed new methodologies dealing with specific issues of verifying object-oriented code usable by auto-active verifiers:
+\begin{itemize}
+\item
+One issue of a failed verification is that an auto-active prover does not indicate if the implementation has a fault or if the specification is too weak or strong.
+A verification debugger allows developers to manually inspect the state of the verification~\cite{GOUES11} to gain insight into the underlying problem of the failed verification.
+We propose a different approach that can in some cases automatically determine if the implementation or specification is to blame for a failed verification.
+Our approach works by doing an additional verification step after a failed verification while inlining routine calls and unrolling loops.
+With the information of both verification runs we can try to narrow down the possible reasons for the failed verification.
+If the second verification attempt is successful, ignoring the specifications of routines and loops, this suggests that the implementation is correct and the specification should be adapted. We call this approach \emph{two-step verification} and use it to improve the feedback after a verification fails in \AutoProof.
+
+\item
+In object-oriented programming, subclasses can adapt the specification of routines by weakening the precondition and strengthening the postcondition.
+However, verifiers tend to simplify this aspect and in general only take static types into consideration, limiting the precision of the verification.
+We propose to use uninterpreted functions for pre- and postconditions and then linking the actual contracts of a routine to these uninterpreted functions based on the dynamic type of an object. With this approach, implemented in \AutoProof, a verifier can use contracts of the dynamic type for verification. This improves the precision of program verifiers when the dynamic type of an object can be inferred at a program location that uses a different static type.
+
+\item
+Verifying code that can throw exceptions introduces particular challenges.
+When an exception is propagated to the caller, the regular postcondition is in general not established.
+To address this issue, other verifiers offer two kinds of postconditions wherever necessary~\cite{MARCHE05,COK11}: a postcondition for case when the routine exits normally and a postcondition for the exceptional case.
+Eiffel's peculiar exception mechanism introduces an additional problem on top of that by allowing to restart the execution of a routine in the case of an exception, which is akin to an implicit loop.
+To verify Eiffel routines that trigger exceptions, we propose a solution that requires additional annotations analogous to loop invariants for the implicit loop introduced by the exception mechanism.
+We have developed a methodology to annotate Eiffel code that uses exceptions and a translation to an intermediate verification language suitable for implementation in a verifier.
+The methodology is not implemented in \AutoProof, since the Eiffel compiler that \AutoProof is built upon implements an old Eiffel exception mechanism, and we have used the Eiffel exception mechanism as proposed in the Eiffel ECMA standard~\cite{ECMA367} as a basis for the methodology.
+
+\end{itemize}
+
+

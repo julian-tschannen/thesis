@@ -1,0 +1,26 @@
+%############################################################################
+\chapter{Verification Assistant}
+\label{sec:va}
+\chapterimage{images/assistant}
+%############################################################################
+
+
+Software developers have different verification tools available nowadays, ranging from dynamic approaches to varying levels of static techniques.
+In this chapter we will introduce an approach to have a unified interface for a range of analysis and verification tools such as \AutoProof to help programmers focus their time and energy where it is most needed.
+
+
+%============================================================================
+\section{Introduction}
+\label{sec:va-intro}
+%============================================================================
+
+We present the design of a development environment that seamlessly integrates formal verification with the standard tools offered by programming environments for object-oriented development (editor, compiler, debugger, \ldots). 
+The integrated environment is called \EVE, built on top of EiffelStudio---the main IDE for Eiffel developers.
+Section~\ref{sec:va:general-mechanisms} describes the engineering of \EVE, showing how it takes into account several of the heterogeneous concerns originating from the goal of improving the usability of formal verification, such as user interaction and management of computational resources.
+
+The implementation of \EVE, freely available for download~\cite{EVE}, continues to evolve as a result of ongoing efforts to integrate more verification techniques and new verification tools.
+The currently available implementation, illustrated through an example session in Section~\ref{sec:va:example}, focuses on the integration of two well-known techniques: static verification based on Hoare-style proofs currently implemented in \EVE through the \AutoProof tool (see Chapter~\ref{sec:ap}), and dynamic analysis based on random testing, implemented through \AutoTest~\cite{MEYER09}.
+Additionally, \EVE integrates a light-weight code analysis tool called \Inspector~\cite{ZURFLUH14}.
+
+
+
